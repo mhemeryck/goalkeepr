@@ -149,3 +149,4 @@
 - [ ] Remove venue location entirely from the model, forms, templates, JavaScript, tests, and migration schema
 - [ ] Pre-populate the date field when editing an existing match
 - [ ] Update completed and pending iteration items with Markdown checkboxes
+- [ ] Upgrade Django to 6.1 with matching `django-stubs` and `django-stubs-ext` versions, regenerate the lockfile, and verify the full project suite
