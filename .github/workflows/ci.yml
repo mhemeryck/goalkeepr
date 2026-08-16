@@ -26,6 +26,8 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --frozen
+      - name: Collect static assets
+        run: uv run python manage.py collectstatic --noinput
       - name: Run tests
         run: uv run pytest
       - name: Run linting
