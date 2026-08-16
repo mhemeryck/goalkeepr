@@ -155,3 +155,9 @@
 
 - [x] Add the private-use disclaimer
 - [x] Use django-whitenoise to serve static assets
+
+## Iteration 5: Continuous Delivery
+
+- [ ] Set up the public GitHub repository and required configuration.
+- [ ] Set up a GitHub Actions pipeline for tests, linting, type checks, and Docker image publishing.
+- [ ] Set up a release process where merges to `master` create a CalVer-type release; deployment remains manual.
