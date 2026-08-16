@@ -38,7 +38,7 @@
 
 - One household team for MVP
 - Seasons per team
-- Match creation: date, home team, away team, optional location and notes
+- Match creation: date, opponent name, home or away flag, optional location and notes
 - Large score controls for either side
 - Timestamped score events
 - Most-recent score-event undo for either side
@@ -63,7 +63,7 @@
 
 - `Team`: household team; user ownership
 - `Season`: team ownership; free-text name
-- `Match`: season ownership; opponent, date, home or away, optional location and notes
+- `Match`: season ownership; opponent name, date, home or away flag, optional location and notes
 - `ScoreEvent`: match ownership; scoring side, recorded timestamp
 - Scores: event counts by side
 - Excluded: players, scorers, assists, match minutes, individual statistics
