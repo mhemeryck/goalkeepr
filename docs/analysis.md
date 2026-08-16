@@ -36,33 +36,34 @@
 
 ## MVP Scope
 
-- Team management for both children
+- One household team for MVP
 - Seasons per team
-- Match creation: date, opponent, home or away, optional notes
-- Match start and finish
+- Match creation: date, home team, away team, optional location and notes
 - Large score controls for either side
 - Timestamped score events
 - Most-recent score-event undo for either side
 - Derived current and final scores
-- Completed-result browsing by team and season
+- Results browsing by season
 - Historical match editing and deletion
-- Finished matches remain editable
+- Delete confirmation
+- Score entry for every match
+- No match-status workflow
 - Authentication before data access or changes
 
 ## Score Recording Flow
 
-- Scheduled or newly created match opened on a phone
-- Prominent team names and current score
-- Large goal controls: Goalkeepr team and opponent
+- Match opened on a phone
+- Home team first, away team second, current score
+- Large goal controls for either side
 - Persistent timestamped event per tap
 - Immediate undo for accidental taps
-- Finished match result in season history
+- Results immediately available in season history
 
 ## Initial Data Model
 
-- `Team`: child team; user ownership
+- `Team`: household team; user ownership
 - `Season`: team ownership; free-text name
-- `Match`: season ownership; opponent, date, home or away, status, optional notes
+- `Match`: season ownership; opponent, date, home or away, optional location and notes
 - `ScoreEvent`: match ownership; scoring side, recorded timestamp
 - Scores: event counts by side
 - Excluded: players, scorers, assists, match minutes, individual statistics
@@ -70,11 +71,12 @@
 ## Screens
 
 - Login and logout
+- Match list after login
 - Team list
 - Season and match list
 - Match create and edit form
-- Live score-entry screen
-- Completed-match detail and score-event history
+- Match score-entry screen
+- Match detail and score-event history
 
 ## Non-Goals
 
@@ -94,5 +96,5 @@
 - Phone-sized match creation and goal recording
 - Displayed score equal to persisted score events
 - Most-recent accidental goal undo
-- Finished results in season history
+- Match results in season history
 - No cross-user viewing or modification of teams, seasons, matches, or score events
