@@ -2,6 +2,7 @@ from collections.abc import Callable
 from datetime import date
 
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import Client, override_settings
 from django.urls import reverse
@@ -46,6 +47,28 @@ def test_public_navigation_contains_login_link(client: Client) -> None:
     response = client.get(reverse("match-list"))
 
     assert reverse("login") in response.text
+
+
+@pytest.mark.django_db
+def test_match_list_contains_private_use_disclaimer(client: Client) -> None:
+    response = client.get(reverse("match-list"))
+
+    assert "Private household use only." in response.text
+
+
+@pytest.mark.django_db
+def test_match_list_uses_full_height_layout(client: Client) -> None:
+    response = client.get(reverse("match-list"))
+
+    assert '<main class="site-main container">' in response.text
+
+
+def test_static_files_use_whitenoise() -> None:
+    assert "whitenoise.middleware.WhiteNoiseMiddleware" in settings.MIDDLEWARE
+    assert (
+        settings.STORAGES["staticfiles"]["BACKEND"]
+        == "whitenoise.storage.CompressedManifestStaticFilesStorage"
+    )
 
 
 @pytest.mark.django_db

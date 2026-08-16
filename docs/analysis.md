@@ -153,5 +153,5 @@
 
 ## Iteration 4: Private Release Basics
 
-- [ ] Add the private-use disclaimer
-- [ ] Use django-whitenoise to serve static assets
+- [x] Add the private-use disclaimer
+- [x] Use django-whitenoise to serve static assets

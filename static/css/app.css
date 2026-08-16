@@ -9,6 +9,9 @@
 }
 
 body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
   background: var(--chalk);
   color: var(--ink);
 }
@@ -26,6 +29,17 @@ body {
 
 .site-header nav {
   min-height: 4.5rem;
+}
+
+.site-main {
+  flex: 1;
+}
+
+.site-footer {
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  color: var(--muted);
+  text-align: center;
 }
 
 .brand {
