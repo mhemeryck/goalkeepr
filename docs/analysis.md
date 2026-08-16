@@ -149,4 +149,6 @@
 - [ ] Remove venue location entirely from the model, forms, templates, JavaScript, tests, and migration schema
 - [ ] Pre-populate the date field when editing an existing match
 - [ ] Update completed and pending iteration items with Markdown checkboxes
+- [ ] Make `ScoreEvent.Side` labels lazy translations, replace `get_side_display()` with enum-label lookup, and test score-event display text
+- [ ] Replace `from typing import Any` with `import typing` and query the typed `ScoreEvent` manager directly for the latest undoable event
 - [ ] Upgrade Django to 6.1 with matching `django-stubs` and `django-stubs-ext` versions, regenerate the lockfile, and verify the full project suite
