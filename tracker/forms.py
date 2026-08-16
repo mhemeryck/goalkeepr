@@ -1,4 +1,5 @@
 import typing
+from datetime import date
 
 from django import forms
 
@@ -25,3 +26,5 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)
         self.fields["notes"].required = False
+        if not self.is_bound and self.instance.pk is None:
+            self.fields["match_date"].initial = date.today()

@@ -134,6 +134,29 @@ def test_match_create_defaults_to_home(
 
 
 @pytest.mark.django_db
+def test_match_create_defaults_date_to_today(
+    user: User,
+    client_for: Callable[[User], Client],
+) -> None:
+    response = client_for(user).get(reverse("match-create"))
+
+    assert response.status_code == 200
+    assert response.context["form"]["match_date"].value() == date.today()
+
+
+@pytest.mark.django_db
+def test_match_create_keeps_notes_collapsed_by_default(
+    user: User,
+    client_for: Callable[[User], Client],
+) -> None:
+    response = client_for(user).get(reverse("match-create"))
+
+    assert response.status_code == 200
+    assert "<details>" in response.text
+    assert "<summary>Notes</summary>" in response.text
+
+
+@pytest.mark.django_db
 def test_match_create_assigns_owner(
     user: User,
     client_for: Callable[[User], Client],

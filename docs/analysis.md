@@ -148,5 +148,5 @@
 
 ## Iteration 3: Match Form Refinement
 
-- [ ] Default a new match date to today
-- [ ] Keep match notes out of the main form by default
+- [x] Default a new match date to today
+- [x] Keep match notes out of the main form by default

@@ -7,7 +7,30 @@
     <h1>{{ title }}</h1>
     <form method="post">
       {% csrf_token %}
-      {{ form.as_p }}
+      {{ form.non_field_errors }}
+      <p>
+        {{ form.opponent_name.label_tag }}
+        {{ form.opponent_name }}
+        {{ form.opponent_name.errors }}
+      </p>
+      <p>
+        {{ form.match_date.label_tag }}
+        {{ form.match_date }}
+        {{ form.match_date.errors }}
+      </p>
+      <p>
+        {{ form.is_home.label_tag }}
+        {{ form.is_home }}
+        {{ form.is_home.errors }}
+      </p>
+      <details>
+        <summary>Notes</summary>
+        <p>
+          {{ form.notes.label_tag }}
+          {{ form.notes }}
+          {{ form.notes.errors }}
+        </p>
+      </details>
       <button type="submit">Save</button>
     </form>
   </section>
