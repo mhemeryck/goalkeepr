@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <p class="eyebrow">Goalkeepr</p>
+    <h1>{{ title }}</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+  </section>
+{% endblock %}

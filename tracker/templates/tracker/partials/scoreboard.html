@@ -1,0 +1,29 @@
+<section id="scoreboard" class="scoreboard" aria-live="polite">
+  <div class="side-panel">
+    <span class="venue">Home</span>
+    <h2>{{ match.home_name }}</h2>
+    <strong class="score">{{ home_score }}</strong>
+    <form method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button class="goal-button" type="submit">+ Goal</button>
+    </form>
+    <form method="post" action="{% url 'score-undo' match.pk 'home' %}" hx-post="{% url 'score-undo' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button class="undo-button" type="submit" {% if not home_score %}disabled{% endif %}>Undo</button>
+    </form>
+  </div>
+  <span class="score-divider">:</span>
+  <div class="side-panel">
+    <span class="venue">Away</span>
+    <h2>{{ match.away_name }}</h2>
+    <strong class="score">{{ away_score }}</strong>
+    <form method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button class="goal-button" type="submit">+ Goal</button>
+    </form>
+    <form method="post" action="{% url 'score-undo' match.pk 'away' %}" hx-post="{% url 'score-undo' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+      {% csrf_token %}
+      <button class="undo-button" type="submit" {% if not away_score %}disabled{% endif %}>Undo</button>
+    </form>
+  </div>
+</section>

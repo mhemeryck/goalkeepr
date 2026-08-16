@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Matches | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">All seasons</p>
+      <h1>Matches</h1>
+    </div>
+    <a role="button" href="{% url 'team-list' %}">Add match</a>
+  </div>
+  {% if matches %}
+    <div class="match-list">
+      {% for match in matches %}
+        {% include "tracker/partials/match_card.html" %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <section class="empty-state">
+      <h2>No matches yet</h2>
+      <p>Add a team and season to record your first score.</p>
+      <a role="button" href="{% url 'team-create' %}">Add a team</a>
+    </section>
+  {% endif %}
+{% endblock %}

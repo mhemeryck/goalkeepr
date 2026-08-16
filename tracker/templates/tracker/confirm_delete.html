@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ kind }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <section class="form-card danger-card">
+    <p class="eyebrow">Permanent action</p>
+    <h1>Delete {{ kind }}?</h1>
+    <p><strong>{{ object }}</strong> and all of its contained records will be removed.</p>
+    <form method="post">
+      {% csrf_token %}
+      <button class="danger-button" type="submit">Delete {{ kind }}</button>
+    </form>
+  </section>
+{% endblock %}

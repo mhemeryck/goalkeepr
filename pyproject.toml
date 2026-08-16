@@ -1,0 +1,39 @@
+[project]
+name = "goalkeepr"
+version = "0.1.0"
+description = "Fast, mobile-first youth football score recording"
+requires-python = ">=3.14"
+dependencies = [
+  "django>=6.0,<6.1",
+  "django-stubs-ext>=5.2,<6",
+  "psycopg[binary]>=3.2,<4",
+  "uvicorn>=0.35,<1",
+]
+
+[dependency-groups]
+dev = [
+  "django-stubs>=5.2,<6",
+  "mypy>=1.17,<2",
+  "pytest>=8.4,<9",
+  "pytest-django>=4.11,<5",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "goalkeepr.settings"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.mypy]
+python_version = "3.14"
+plugins = ["mypy_django_plugin.main"]
+strict = true
+exclude = ["tracker/migrations"]
+
+[tool.django-stubs]
+django_settings_module = "goalkeepr.settings"

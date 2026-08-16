@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ season.name }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="{% url 'team-detail' season.team.pk %}">{{ season.team.name }}</a></p>
+      <h1>{{ season.name }}</h1>
+    </div>
+    <a role="button" href="{% url 'match-create' season.pk %}">Add match</a>
+  </div>
+  <div class="text-actions">
+    <a href="{% url 'season-edit' season.pk %}">Edit season</a>
+    <a class="danger-link" href="{% url 'season-delete' season.pk %}">Delete season</a>
+  </div>
+  {% if matches %}
+    <div class="match-list">
+      {% for match in matches %}
+        {% include "tracker/partials/match_card.html" %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <section class="empty-state"><h2>No matches yet</h2><p>Add the next fixture when you know it.</p></section>
+  {% endif %}
+{% endblock %}
