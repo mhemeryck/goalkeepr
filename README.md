@@ -46,3 +46,7 @@ typecheck
 ```
 
 The development server uses SQLite unless `POSTGRES_HOST` is set.
+
+## License
+
+Goalkeepr is available under the MIT License.
