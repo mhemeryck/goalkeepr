@@ -3,21 +3,24 @@
   languages.python = {
     enable = true;
     package = pkgs.python314;
-    uv.enable = true;
+    uv = {
+      enable = true;
+      sync.enable = false;
+    };
   };
 
-  packages = [
-    pkgs.nushell
-    pkgs.ruff
+  packages = with pkgs; [
+    nushell
+    ruff
   ];
 
   scripts = {
-    test.exec = "nu -c 'uv run pytest'";
-    lint.exec = "nu -c 'ruff check .'";
-    format.exec = "nu -c 'ruff format .'";
-    typecheck.exec = "nu -c 'uv run mypy .'";
-    migrate.exec = "nu -c 'uv run python manage.py migrate'";
-    server.exec = "nu -c 'uv run uvicorn goalkeepr.asgi:application --reload'";
+    test.exec = "uv run pytest";
+    lint.exec = "ruff check .";
+    format.exec = "ruff format .";
+    typecheck.exec = "uv run mypy .";
+    migrate.exec = "uv run python manage.py migrate";
+    server.exec = "uv run uvicorn goalkeepr.asgi:application --reload";
   };
 
   enterShell = ''
