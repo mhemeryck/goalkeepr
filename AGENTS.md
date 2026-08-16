@@ -1,27 +1,45 @@
 # Goalkeepr Development Guidance
 
-Goalkeepr is a small, mobile-first Django and HTMX application for recording youth football match scores.
+## Product
 
-Keep the first release local and runnable through Docker Compose with Django and PostgreSQL.
+- Small, mobile-first Django and HTMX app for youth football scores
+- Local first release: Docker Compose, Django, PostgreSQL
+- Fast, resilient score entry with large phone-friendly controls
+- Django built-ins before dependencies or custom abstractions
+- Server-rendered templates and HTMX; no SPA or separate frontend API
 
-Use Django's built-in facilities before adding dependencies or custom abstractions.
+## Python
 
-Use server-rendered templates and HTMX interactions instead of SPA tooling or a separate frontend API.
+- Latest stable Python and Django at scaffold time
+- `uv` for dependencies and commands
+- ASGI via Uvicorn
+- Async, function-based Django views
+- Procedural code; OOP only where Django requires it
+- Full type annotations; mypy checks
+- UTC timestamps
 
-Keep score entry resilient and easy to use on a phone with large, clear controls.
+## Quality
 
-Write or update a focused test before changing application behavior when the behavior can be cleanly tested.
+- Focused behavior test before application changes where practical
+- pytest function-based tests
+- Ruff formatting and linting
+- Relevant tests and checks before completion
 
-Run the relevant test suite and formatting or linting checks before declaring work complete.
+## Frontend
 
-Use `uv` for Python dependencies and commands.
+- Plain HTML, CSS, JavaScript, and HTMX
+- Locally bundled Pico CSS
+- Minimal, mobile-first interface
 
-Use `docker compose` for local services.
+## Tooling
 
-Do not introduce Kubernetes manifests, production deployment configuration, or external services unless explicitly requested.
+- `devenv` tooling
+- Nushell configuration in `devenv.yaml`
+- Nushell over Bash for commands and scripts
+- No Justfile
+- Automation scripts in devenv configuration
 
-Do not hand-write mocks.
+## Operations
 
-Run `just generate` when generated mocks are required by an existing interface.
-
-Do not create, amend, or push Git commits without explicit user approval.
+- `docker compose` for local services
+- No Kubernetes, production deployment, or external services without explicit request

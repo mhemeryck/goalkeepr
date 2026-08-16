@@ -2,109 +2,97 @@
 
 ## Background
 
-Both children play football, and their family regularly attends their matches.
-
-At present, another parent records match scores manually in an Excel spreadsheet on a phone during games.
-
-That spreadsheet becomes the historical record of all completed matches after each game.
-
-Goalkeepr will replace this phone-based manual spreadsheet workflow with a small, purpose-built application.
-
-The primary user is a parent recording the score while watching a match.
-
-The application must therefore make the in-match action faster and less error-prone than editing a spreadsheet on a phone.
-
-The project should stay intentionally small so it can be built in one focused implementation pass and maintained with little effort.
+- Youth football score recording for two children
+- Current workflow: phone-based Excel spreadsheet
+- Spreadsheet as completed-match history
+- Primary user: parent at a match
+- Goal: faster, less error-prone score entry
+- Small, low-maintenance first release
 
 ## Technical Direction
 
-Goalkeepr will be a Django application using server-rendered HTML and HTMX for small interactive updates.
-
-It will use PostgreSQL for durable application data.
-
-The first release runs locally with Docker Compose, which starts the Django application and PostgreSQL.
-
-This matches the existing technical approach used by `facturette` without prematurely adding deployment work.
-
-Kubernetes deployment, ingress, TLS, image publishing, backups, and production secrets are follow-up work.
+- Django, server-rendered HTML, HTMX
+- Async function-based views and async ORM support where applicable
+- ASGI application via Uvicorn
+- PostgreSQL for durable data
+- Procedural, fully type-annotated Python
+- mypy type checks, pytest function tests, Ruff formatting and linting
+- devenv tooling; Nushell commands and scripts
+- Plain HTML, CSS, JavaScript, and locally bundled Pico CSS
+- Minimal, mobile-first visual design
+- UTC timestamps
+- Local Docker Compose: Django application and PostgreSQL
+- Docker Compose and Dockerfile structure based on `facturette`
+- No Kubernetes, ingress, TLS, image publishing, backups, production secrets, or external services
 
 ## Users And Access
 
-The first release supports normal Django user accounts.
-
-One shared household account is sufficient for initial use.
-
-The data model should allow further users and per-team permissions later without building shared collaboration now.
-
-Every user must only be able to access their own teams and match data.
+- Standard Django authentication and security features
+- One shared household account for initial use
+- No public registration, account management, or password-reset screens
+- Initial account through Django `createsuperuser`
+- Future-ready model for more users and per-team permissions
+- Strict user ownership for teams, seasons, matches, and score events
 
 ## MVP Scope
 
-- Manage teams for both children.
-- Organize matches into seasons.
-- Create a match with date, opponent, home or away status, and optional notes.
-- Start and finish a match.
-- Record a score event for either side using large phone-friendly controls.
-- Undo the most recent score event for either side.
-- Derive and display the current and final score from score events.
-- Browse completed results for a team and season.
-- Edit or delete a match when correcting historical data.
-- Authenticate users before showing or changing data.
+- Team management for both children
+- Seasons per team
+- Match creation: date, opponent, home or away, optional notes
+- Match start and finish
+- Large score controls for either side
+- Timestamped score events
+- Most-recent score-event undo for either side
+- Derived current and final scores
+- Completed-result browsing by team and season
+- Historical match editing and deletion
+- Finished matches remain editable
+- Authentication before data access or changes
 
 ## Score Recording Flow
 
-The parent opens a scheduled or newly created match from a phone.
-
-The match screen prominently shows both team names and the current score.
-
-Large controls add a goal for Goalkeepr's team or the opponent.
-
-Each tap persists an individual timestamped score event rather than only overwriting a score total.
-
-The screen provides a clear undo action so an accidental tap can be corrected immediately.
-
-Finishing a match makes its derived score part of the season history.
+- Scheduled or newly created match opened on a phone
+- Prominent team names and current score
+- Large goal controls: Goalkeepr team and opponent
+- Persistent timestamped event per tap
+- Immediate undo for accidental taps
+- Finished match result in season history
 
 ## Initial Data Model
 
-`Team` represents one of the children's football teams and belongs to a user.
-
-`Season` represents a named season for one team.
-
-`Match` belongs to a season and stores the opponent, date, home or away status, status, and optional notes.
-
-`ScoreEvent` belongs to a match and records which side scored and when it was recorded.
-
-The score is calculated by counting the match's score events by side.
-
-Player names, scorers, assists, match minutes, and other individual statistics are not part of the initial model.
+- `Team`: child team; user ownership
+- `Season`: team ownership; free-text name
+- `Match`: season ownership; opponent, date, home or away, status, optional notes
+- `ScoreEvent`: match ownership; scoring side, recorded timestamp
+- Scores: event counts by side
+- Excluded: players, scorers, assists, match minutes, individual statistics
 
 ## Screens
 
-- Login and logout.
-- Team list.
-- Season and match list.
-- Create and edit match form.
-- Live match score-entry screen.
-- Completed match detail and score-event history.
+- Login and logout
+- Team list
+- Season and match list
+- Match create and edit form
+- Live score-entry screen
+- Completed-match detail and score-event history
 
 ## Non-Goals
 
-- Native mobile applications.
-- A JavaScript single-page application.
-- Offline score queueing and synchronization.
-- Realtime multi-parent score editing.
-- Player statistics or goal-scorer tracking.
-- League tables, standings, fixtures import, or calendar synchronization.
-- Public sharing links.
-- Kubernetes or other production deployment configuration.
+- Native mobile apps
+- JavaScript SPA
+- Offline queues and synchronization
+- Realtime multi-parent score editing
+- Player statistics and scorer tracking
+- League tables, standings, fixture imports, calendar synchronization
+- Public sharing links
+- Kubernetes and production deployment configuration
 
 ## Acceptance Criteria
 
-- A user can run the application locally with Docker Compose.
-- A user can create separate teams and seasons for both children.
-- A user can create a match and record goals on a phone-sized viewport.
-- The displayed score always matches the persisted score events.
-- An accidental most-recent goal can be undone.
-- Finished matches appear with their final result in the relevant season history.
-- A user cannot view or alter another user's teams, seasons, matches, or score events.
+- Local application startup through Docker Compose
+- Separate teams and seasons for both children
+- Phone-sized match creation and goal recording
+- Displayed score equal to persisted score events
+- Most-recent accidental goal undo
+- Finished results in season history
+- No cross-user viewing or modification of teams, seasons, matches, or score events
