@@ -150,3 +150,8 @@
 
 - [x] Default a new match date to today
 - [x] Keep match notes out of the main form by default
+
+## Iteration 4: Private Release Basics
+
+- [ ] Add the private-use disclaimer
+- [ ] Use django-whitenoise to serve static assets
