@@ -12,6 +12,7 @@ services:
       POSTGRES_HOST: db
       POSTGRES_PASSWORD: goalkeepr
       POSTGRES_USER: goalkeepr
+      TEAM_NAME: ${TEAM_NAME:-K.F.C. Sparta Kolmont}
     ports:
       - "8000:8000"
     depends_on:

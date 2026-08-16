@@ -1,7 +1,7 @@
 <section id="scoreboard" class="scoreboard" aria-live="polite">
   <div class="side-panel">
     <span class="venue">Home</span>
-    <h2>{{ match.home_name }}</h2>
+    <h2>{{ home_name }}</h2>
     <strong class="score">{{ home_score }}</strong>
     <form method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
       {% csrf_token %}
@@ -15,7 +15,7 @@
   <span class="score-divider">:</span>
   <div class="side-panel">
     <span class="venue">Away</span>
-    <h2>{{ match.away_name }}</h2>
+    <h2>{{ away_name }}</h2>
     <strong class="score">{{ away_score }}</strong>
     <form method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
       {% csrf_token %}

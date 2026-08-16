@@ -5,6 +5,7 @@ description = "Fast, mobile-first youth football score recording"
 requires-python = ">=3.14"
 dependencies = [
   "django>=6.0,<6.1",
+  "django-environ>=0.12,<1",
   "django-stubs-ext>=5.2,<6",
   "psycopg[binary]>=3.2,<4",
   "uvicorn>=0.35,<1",

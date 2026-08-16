@@ -12,56 +12,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name="Team",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("name", models.CharField(max_length=100)),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                (
-                    "owner",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="teams",
-                        to=settings.AUTH_USER_MODEL,
-                    ),
-                ),
-            ],
-            options={"ordering": ["name"]},
-        ),
-        migrations.CreateModel(
-            name="Season",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("name", models.CharField(max_length=100)),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                (
-                    "team",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="seasons",
-                        to="tracker.team",
-                    ),
-                ),
-            ],
-            options={"ordering": ["-name"]},
-        ),
-        migrations.CreateModel(
             name="Match",
             fields=[
                 (
@@ -81,11 +31,11 @@ class Migration(migrations.Migration):
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 (
-                    "season",
+                    "owner",
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="matches",
-                        to="tracker.season",
+                        to=settings.AUTH_USER_MODEL,
                     ),
                 ),
             ],
@@ -123,17 +73,5 @@ class Migration(migrations.Migration):
                 ),
             ],
             options={"ordering": ["-recorded_at", "-pk"]},
-        ),
-        migrations.AddConstraint(
-            model_name="team",
-            constraint=models.UniqueConstraint(
-                fields=("owner", "name"), name="unique_team_name_per_owner"
-            ),
-        ),
-        migrations.AddConstraint(
-            model_name="season",
-            constraint=models.UniqueConstraint(
-                fields=("team", "name"), name="unique_season_name_per_team"
-            ),
         ),
     ]

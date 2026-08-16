@@ -6,18 +6,19 @@
   <div class="page-heading">
     <div>
       <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
-      <h1>{{ match.home_name }} {{ home_score }}–{{ away_score }} {{ match.away_name }}</h1>
+      <h1>{{ home_name }} {{ home_score }}–{{ away_score }} {{ away_name }}</h1>
     </div>
-    <a role="button" href="{% url 'match-score' match.pk %}">Enter score</a>
+    {% if can_modify %}<a role="button" href="{% url 'match-score' match.pk %}">Enter score</a>{% endif %}
   </div>
-  <div class="text-actions">
-    <a href="{% url 'match-edit' match.pk %}">Edit match</a>
-    <a class="danger-link" href="{% url 'match-delete' match.pk %}">Delete match</a>
-  </div>
+  {% if can_modify %}
+    <div class="text-actions">
+      <a href="{% url 'match-edit' match.pk %}">Edit match</a>
+      <a class="danger-link" href="{% url 'match-delete' match.pk %}">Delete match</a>
+    </div>
+  {% endif %}
   <article class="match-meta">
     <dl>
-      <div><dt>Team</dt><dd>{{ match.season.team.name }}</dd></div>
-      <div><dt>Season</dt><dd>{{ match.season.name }}</dd></div>
+      <div><dt>Venue</dt><dd>{% if match.is_home %}Home{% else %}Away{% endif %}</dd></div>
       {% if match.location %}<div><dt>Location</dt><dd>{{ match.location }}</dd></div>{% endif %}
       {% if match.notes %}<div><dt>Notes</dt><dd>{{ match.notes|linebreaksbr }}</dd></div>{% endif %}
     </dl>
@@ -28,7 +29,9 @@
       <ol>
         {% for event in events reversed %}
           <li>
-            <strong>{% if event.side == 'home' %}{{ match.home_name }}{% else %}{{ match.away_name }}{% endif %}</strong>
+            <strong>
+              {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
+            </strong>
             <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
           </li>
         {% endfor %}

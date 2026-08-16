@@ -2,10 +2,12 @@ import os
 from pathlib import Path
 
 import django_stubs_ext
+import environ  # type: ignore[import-untyped]
 
 django_stubs_ext.monkeypatch()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "local-development-only")
 DEBUG = os.environ.get("DJANGO_DEBUG", "true").lower() == "true"
@@ -14,6 +16,7 @@ ALLOWED_HOSTS = [
     for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
     if host.strip()
 ]
+TEAM_NAME = env.str("TEAM_NAME", default="K.F.C. Sparta Kolmont")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -46,6 +49,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "tracker.context_processors.team_name",
             ],
         },
     }

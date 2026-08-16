@@ -1,6 +1,6 @@
 {% load static %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,7 +16,7 @@
         <a class="brand" href="{% url 'match-list' %}">Goalkeepr</a>
         {% if user.is_authenticated %}
           <div class="nav-actions">
-            <a href="{% url 'team-list' %}">Teams</a>
+            <a href="{% url 'match-create' %}">Add match</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
               <button class="link-button" type="submit">Log out</button>
@@ -28,5 +28,6 @@
     <main class="container">
       {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
   </body>
 </html>

@@ -3,46 +3,12 @@ from django.db import models
 from django.utils import timezone
 
 
-class Team(models.Model):
+class Match(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="teams",
+        related_name="matches",
     )
-    name = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["owner", "name"], name="unique_team_name_per_owner"
-            )
-        ]
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class Season(models.Model):
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="seasons")
-    name = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["-name"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["team", "name"], name="unique_season_name_per_team"
-            )
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.team}: {self.name}"
-
-
-class Match(models.Model):
-    season = models.ForeignKey(Season, on_delete=models.CASCADE, related_name="matches")
     opponent_name = models.CharField(max_length=100)
     match_date = models.DateField()
     is_home = models.BooleanField(default=True)
@@ -55,23 +21,7 @@ class Match(models.Model):
         ordering = ["-match_date", "-pk"]
 
     def __str__(self) -> str:
-        return f"{self.season.team} v {self.opponent_name}"
-
-    @property
-    def home_name(self) -> str:
-        return self.season.team.name if self.is_home else self.opponent_name
-
-    @property
-    def away_name(self) -> str:
-        return self.opponent_name if self.is_home else self.season.team.name
-
-    @property
-    def home_score(self) -> int:
-        return self.score_events.filter(side=ScoreEvent.Side.HOME).count()
-
-    @property
-    def away_score(self) -> int:
-        return self.score_events.filter(side=ScoreEvent.Side.AWAY).count()
+        return f"Match against {self.opponent_name} on {self.match_date}"
 
 
 class ScoreEvent(models.Model):

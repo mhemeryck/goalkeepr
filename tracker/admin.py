@@ -1,5 +1,5 @@
 from django.contrib import admin
 
-from tracker.models import Match, ScoreEvent, Season, Team
+import tracker.models
 
-admin.site.register([Team, Season, Match, ScoreEvent])
+admin.site.register([tracker.models.Match, tracker.models.ScoreEvent])

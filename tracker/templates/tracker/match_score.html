@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}{{ match.home_name }} v {{ match.away_name }} | Goalkeepr{% endblock %}
+{% block title %}{{ home_name }} v {{ away_name }} | Goalkeepr{% endblock %}
 
 {% block content %}
   <div class="score-heading">
     <div>
-      <p class="eyebrow">{{ match.match_date|date:"D j M Y" }} · {{ match.season.name }}</p>
+      <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
       <h1>Score entry</h1>
     </div>
     <a href="{% url 'match-detail' match.pk %}">Match details</a>
