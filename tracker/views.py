@@ -1,4 +1,4 @@
-from typing import Any
+import typing
 
 from asgiref.sync import sync_to_async
 from django import forms
@@ -55,7 +55,7 @@ def _scored_matches(
     )
 
 
-async def _score_context(match: tracker.models.Match) -> dict[str, Any]:
+async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
     team_name = str(settings.TEAM_NAME)
     return {
         "match": match,
@@ -93,7 +93,7 @@ async def match_create(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "tracker/form.html",
-        {"form": form, "title": "Add match", "is_match_form": True},
+        {"form": form, "title": "Add match"},
     )
 
 
@@ -119,7 +119,7 @@ async def match_edit(request: HttpRequest, pk: int) -> HttpResponse:
     return render(
         request,
         "tracker/form.html",
-        {"form": form, "title": "Edit match", "is_match_form": True},
+        {"form": form, "title": "Edit match"},
     )
 
 
@@ -168,7 +168,9 @@ async def score_undo(request: HttpRequest, pk: int, side: str) -> HttpResponse:
     match = await _owned_match(user, pk)
     if not _valid_side(side):
         raise Http404
-    event = await match.score_events.filter(side=side).afirst()
+    event = await tracker.models.ScoreEvent.objects.filter(
+        match=match, side=side
+    ).afirst()
     if event is not None:
         await event.adelete()
     return render(

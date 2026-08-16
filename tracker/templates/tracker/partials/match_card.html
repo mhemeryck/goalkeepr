@@ -4,7 +4,6 @@
       <span class="match-date">{{ match.match_date|date:"D j M Y" }}</span>
       <strong>{% if match.is_home %}{{ TEAM_NAME }}{% else %}{{ match.opponent_name }}{% endif %}</strong>
       <strong>{% if match.is_home %}{{ match.opponent_name }}{% else %}{{ TEAM_NAME }}{% endif %}</strong>
-      {% if match.location %}<small>{{ match.location }}</small>{% endif %}
     </div>
     <div class="compact-score" aria-label="Score {{ match.home_score_value }} to {{ match.away_score_value }}">
       <strong>{{ match.home_score_value }}</strong>

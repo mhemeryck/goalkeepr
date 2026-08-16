@@ -19,7 +19,6 @@
   <article class="match-meta">
     <dl>
       <div><dt>Venue</dt><dd>{% if match.is_home %}Home{% else %}Away{% endif %}</dd></div>
-      {% if match.location %}<div><dt>Location</dt><dd>{{ match.location }}</dd></div>{% endif %}
       {% if match.notes %}<div><dt>Notes</dt><dd>{{ match.notes|linebreaksbr }}</dd></div>{% endif %}
     </dl>
   </article>

@@ -14,14 +14,12 @@ def make_match(
     *,
     opponent_name: str = "United",
     is_home: bool = True,
-    location: str = "",
 ) -> tracker.models.Match:
     return tracker.models.Match.objects.create(
         owner=owner,
         opponent_name=opponent_name,
         match_date=date(2026, 8, 16),
         is_home=is_home,
-        location=location,
     )
 
 
@@ -41,6 +39,13 @@ def test_match_list_is_public_and_contains_all_matches(
     assert "K.F.C. Sparta Kolmont" in response.text
     assert reverse("match-detail", args=[first.pk]) in response.text
     assert reverse("match-score", args=[first.pk]) not in response.text
+
+
+@pytest.mark.django_db
+def test_public_navigation_contains_login_link(client: Client) -> None:
+    response = client.get(reverse("match-list"))
+
+    assert reverse("login") in response.text
 
 
 @pytest.mark.django_db
@@ -125,11 +130,11 @@ def test_match_create_defaults_to_home(
 
     assert response.status_code == 200
     assert response.context["form"]["is_home"].value() is True
-    assert 'src="/static/js/match-form.js"' in response.text
+    assert "location" not in response.context["form"].fields
 
 
 @pytest.mark.django_db
-def test_match_create_assigns_owner_and_clears_home_location(
+def test_match_create_assigns_owner(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
@@ -139,7 +144,6 @@ def test_match_create_assigns_owner_and_clears_home_location(
             "opponent_name": "United",
             "match_date": "2026-08-16",
             "is_home": "True",
-            "location": "Sports field",
             "notes": "Cup match",
         },
     )
@@ -147,51 +151,19 @@ def test_match_create_assigns_owner_and_clears_home_location(
     match = tracker.models.Match.objects.get()
     assert response.status_code == 302
     assert match.owner == user
-    assert match.location == ""
 
 
 @pytest.mark.django_db
-def test_match_create_preserves_away_location(
+def test_match_edit_populates_date_field(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    response = client_for(user).post(
-        reverse("match-create"),
-        {
-            "opponent_name": "United",
-            "match_date": "2026-08-16",
-            "is_home": "False",
-            "location": "Sports field",
-            "notes": "",
-        },
-    )
+    match = make_match(user)
 
-    assert response.status_code == 302
-    assert tracker.models.Match.objects.get().location == "Sports field"
+    response = client_for(user).get(reverse("match-edit", args=[match.pk]))
 
-
-@pytest.mark.django_db
-def test_match_edit_to_home_clears_existing_location(
-    user: User,
-    client_for: Callable[[User], Client],
-) -> None:
-    match = make_match(user, is_home=False, location="Sports field")
-
-    response = client_for(user).post(
-        reverse("match-edit", args=[match.pk]),
-        {
-            "opponent_name": "United",
-            "match_date": "2026-08-16",
-            "is_home": "True",
-            "location": "Sports field",
-            "notes": "",
-        },
-    )
-
-    match.refresh_from_db()
-    assert response.status_code == 302
-    assert match.is_home is True
-    assert match.location == ""
+    assert response.status_code == 200
+    assert 'value="2026-08-16"' in response.text
 
 
 @pytest.mark.django_db

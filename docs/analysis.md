@@ -44,11 +44,8 @@
 - [x] Default team name: `K.F.C. Sparta Kolmont`
 - [x] No team management
 - [x] No season management
-- [x] Match creation: date, opponent name, home or away flag, optional location and notes
+- [x] Match creation: date, opponent name, home or away flag, and optional notes
 - [x] Home selected by default for new matches
-- [x] Location hidden and unavailable for home matches
-- [x] Location visible and optional for away matches
-- [x] Submitted location discarded for home matches
 - [x] Large score controls for either side
 - [x] Timestamped score events
 - [x] Most-recent score-event undo for either side
@@ -73,7 +70,7 @@
 
 ## Initial Data Model
 
-- [x] `Match`: direct user ownership; opponent name, date, home or away flag, optional away location and notes
+- [x] `Match`: direct user ownership; opponent name, date, home or away flag, and optional notes
 - [x] `ScoreEvent`: match ownership; scoring side, recorded timestamp
 - [x] Scores: event counts by side
 - [x] Household team name is configuration, not persisted domain data
@@ -110,8 +107,6 @@
 - [x] Team name can be overridden through the environment
 - [x] Phone-sized match creation and goal recording
 - [x] Home is selected for a new match without requiring an extra click
-- [x] Location cannot be entered or retained for a home match
-- [x] Location can be entered for an away match
 - [x] Displayed score equal to persisted score events
 - [x] Most-recent accidental goal undo
 - [x] Anonymous users can browse all matches and click through to read-only match details
@@ -131,24 +126,22 @@
 - [x] Load `TEAM_NAME` with `django-environ` and expose it to templates
 - [x] Render the configured team name on the correct home or away side
 - [x] Default new match forms to home
-- [x] Conditionally show the location field only when away is selected
-- [x] Clear location during server-side validation when home is selected
 - [x] Explicitly select Pico's light color scheme to prevent unreadable light text on light backgrounds
 - [x] Remove Python properties from application models
 - [x] Calculate scores with explicit ORM annotations or view context values
 - [x] Prefer namespaced imports, such as `import tracker.models` with `tracker.models.Match`
 - [x] Keep `django-stubs` enabled with the Django mypy plugin
 - [x] Keep strict mypy checks enforced in project configuration and verification
-- [x] Add focused tests for public access, write protection, ownership, team-name rendering, home defaults, away location, and home location clearing
+- [x] Add focused tests for public access, write protection, ownership, team-name rendering, and home defaults
 
 ## Iteration 2: Match Form Simplification
 
 ### Required Changes
 
-- [ ] Add a `Log in` link to public navigation for anonymous visitors
-- [ ] Remove venue location entirely from the model, forms, templates, JavaScript, tests, and migration schema
-- [ ] Pre-populate the date field when editing an existing match
-- [ ] Update completed and pending iteration items with Markdown checkboxes
-- [ ] Make `ScoreEvent.Side` labels lazy translations, replace `get_side_display()` with enum-label lookup, and test score-event display text
-- [ ] Replace `from typing import Any` with `import typing` and query the typed `ScoreEvent` manager directly for the latest undoable event
-- [ ] Upgrade Django to 6.1 with matching `django-stubs` and `django-stubs-ext` versions, regenerate the lockfile, and verify the full project suite
+- [x] Add a `Log in` link to public navigation for anonymous visitors
+- [x] Remove venue location entirely from the model, forms, templates, JavaScript, tests, and migration schema
+- [x] Pre-populate the date field when editing an existing match
+- [x] Update completed and pending iteration items with Markdown checkboxes
+- [x] Make `ScoreEvent.Side` labels lazy translations, replace `get_side_display()` with enum-label lookup, and test score-event display text
+- [x] Replace `from typing import Any` with `import typing` and query the typed `ScoreEvent` manager directly for the latest undoable event
+- [x] Upgrade Django to 6.1 with matching `django-stubs` and `django-stubs-ext` versions, regenerate the lockfile, and verify the full project suite

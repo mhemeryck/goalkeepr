@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth.models import User
-from django.utils import timezone
+from django.utils import timezone, translation
 
 import tracker.models
 
@@ -42,3 +42,19 @@ def test_score_events_are_ordered_most_recent_first(user: User) -> None:
     )
 
     assert list(match.score_events.all()) == [later, earlier]
+
+
+@pytest.mark.django_db
+def test_score_event_display_uses_translated_side_label(user: User) -> None:
+    match = tracker.models.Match.objects.create(
+        owner=user,
+        opponent_name="United",
+        match_date=date(2026, 8, 16),
+    )
+    event = tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+    )
+
+    with translation.override("en"):
+        assert str(event) == f"Home goal at {event.recorded_at}"
