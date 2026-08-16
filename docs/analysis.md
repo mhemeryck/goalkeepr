@@ -145,3 +145,8 @@
 - [x] Make `ScoreEvent.Side` labels lazy translations, replace `get_side_display()` with enum-label lookup, and test score-event display text
 - [x] Replace `from typing import Any` with `import typing` and query the typed `ScoreEvent` manager directly for the latest undoable event
 - [x] Upgrade Django to 6.1 with matching `django-stubs` and `django-stubs-ext` versions, regenerate the lockfile, and verify the full project suite
+
+## Iteration 3: Match Form Refinement
+
+- [ ] Default a new match date to today
+- [ ] Keep match notes out of the main form by default
