@@ -158,6 +158,10 @@
 
 ## Iteration 5: Continuous Delivery
 
-- [ ] Set up the public GitHub repository and required configuration.
-- [ ] Set up a GitHub Actions pipeline for tests, linting, type checks, and Docker image publishing.
-- [ ] Set up a release process where merges to `master` create a CalVer-type release; deployment remains manual.
+- [ ] Create the public `mhemeryck/goalkeepr` GitHub repository with an MIT license.
+- [ ] Protect `master` with required pull requests and passing quality checks without adding unnecessary repository rules.
+- [ ] Run tests, linting, and type checks in GitHub Actions.
+- [ ] Publish a Linux AMD64 image to `mhemeryck/goalkeepr` on Docker Hub using the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets.
+- [ ] Create a tag and GitHub release after each merge to `master` using the `YYYY.MM.DD.N` CalVer format, where `N` permits multiple releases per day.
+- [ ] Tag each released Docker image with its CalVer version and `latest`.
+- [ ] Keep deployment manual.
