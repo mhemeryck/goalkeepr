@@ -17,6 +17,11 @@ async def _form_is_valid(form: forms.BaseForm) -> bool:
     return await sync_to_async(form.is_valid)()
 
 
+async def _not_found_response(request: HttpRequest) -> HttpResponse:
+    request.user = await request.auser()
+    return render(request, "404.html", status=404)
+
+
 def _scored_matches(
     queryset: QuerySet[tracker.models.Match],
 ) -> QuerySet[tracker.models.Match]:
@@ -77,8 +82,7 @@ async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         match = await tracker.models.Match.objects.aget(pk=pk)
     except tracker.models.Match.DoesNotExist:
-        request.user = await request.auser()
-        return render(request, "404.html", status=404)
+        return await _not_found_response(request)
     events = [event async for event in match.score_events.all()]
     user = await request.auser()
     request.user = user
@@ -93,8 +97,7 @@ async def match_edit(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         match = await tracker.models.Match.objects.aget(pk=pk)
     except tracker.models.Match.DoesNotExist:
-        request.user = await request.auser()
-        return render(request, "404.html", status=404)
+        return await _not_found_response(request)
     request.user = await request.auser()
     form = tracker.forms.MatchForm(request.POST or None, instance=match)
     if request.method == "POST" and await _form_is_valid(form):
@@ -112,8 +115,7 @@ async def match_delete(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         match = await tracker.models.Match.objects.aget(pk=pk)
     except tracker.models.Match.DoesNotExist:
-        request.user = await request.auser()
-        return render(request, "404.html", status=404)
+        return await _not_found_response(request)
     if request.method == "POST":
         await match.adelete()
         return redirect("match-list")
@@ -130,8 +132,7 @@ async def match_score(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         match = await tracker.models.Match.objects.aget(pk=pk)
     except tracker.models.Match.DoesNotExist:
-        request.user = await request.auser()
-        return render(request, "404.html", status=404)
+        return await _not_found_response(request)
     request.user = await request.auser()
     return render(request, "tracker/match_score.html", await _score_context(match))
 
@@ -146,8 +147,7 @@ async def score_goal(
     try:
         match = await tracker.models.Match.objects.aget(pk=pk)
     except tracker.models.Match.DoesNotExist:
-        request.user = await request.auser()
-        return render(request, "404.html", status=404)
+        return await _not_found_response(request)
     await tracker.models.ScoreEvent.objects.acreate(match=match, side=side)
     return render(
         request, "tracker/partials/scoreboard.html", await _score_context(match)
@@ -164,8 +164,7 @@ async def score_undo(
     try:
         match = await tracker.models.Match.objects.aget(pk=pk)
     except tracker.models.Match.DoesNotExist:
-        request.user = await request.auser()
-        return render(request, "404.html", status=404)
+        return await _not_found_response(request)
     event = await tracker.models.ScoreEvent.objects.filter(
         match=match, side=side
     ).afirst()
