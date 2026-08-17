@@ -33,7 +33,7 @@
 - [x] Initial account through Django `createsuperuser`
 - [x] Public read-only access to the match list and match details
 - [x] Authentication required for match creation, editing, deletion, score recording, and undo
-- [x] Strict user ownership for matches and score events
+- [x] Any authenticated household user can manage all matches and score events
 - [x] No public write operations
 
 ## MVP Scope
@@ -70,8 +70,8 @@
 
 ## Initial Data Model
 
-- [x] `Match`: direct user ownership; opponent name, date, home or away flag, and optional notes
-- [x] `ScoreEvent`: match ownership; scoring side, recorded timestamp
+- [x] `Match`: opponent name, date, home or away flag, and optional notes
+- [x] `ScoreEvent`: match relationship; scoring side, recorded timestamp
 - [x] Scores: event counts by side
 - [x] Household team name is configuration, not persisted domain data
 - [x] Excluded: players, scorers, assists, match minutes, individual statistics
@@ -111,7 +111,7 @@
 - [x] Most-recent accidental goal undo
 - [x] Anonymous users can browse all matches and click through to read-only match details
 - [x] Anonymous users cannot create, edit, delete, score, or undo matches
-- [x] Authenticated users cannot modify another user's matches or score events
+- [x] Authenticated users can modify any household match or score event
 - [x] Match results are ordered by date without season grouping
 
 ### Required Code Changes
@@ -122,7 +122,7 @@
 - [x] Replace season-scoped match creation with direct authenticated match creation
 - [x] Replace team and season navigation with match-focused navigation
 - [x] Make match list and match detail views public and read-only
-- [x] Keep score entry, goal creation, undo, editing, and deletion authenticated and owner-scoped
+- [x] Keep score entry, goal creation, undo, editing, and deletion authenticated
 - [x] Load `TEAM_NAME` with `django-environ` and expose it to templates
 - [x] Render the configured team name on the correct home or away side
 - [x] Default new match forms to home
@@ -165,3 +165,9 @@
 - [ ] Create a tag and GitHub release after each merge to `master` using the `YYYY.MM.DD.N` CalVer format, where `N` permits multiple releases per day.
 - [ ] Tag each released Docker image with its CalVer version and `latest`.
 - [ ] Keep deployment manual.
+
+## Iteration 6: Shared Household Match Access
+
+- [x] Remove direct user ownership from `Match`.
+- [x] Allow every authenticated household user to edit, delete, score, and undo every match.
+- [x] Keep match writes inaccessible to anonymous visitors.

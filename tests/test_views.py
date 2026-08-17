@@ -11,13 +11,11 @@ import tracker.models
 
 
 def make_match(
-    owner: User,
     *,
     opponent_name: str = "United",
     is_home: bool = True,
 ) -> tracker.models.Match:
     return tracker.models.Match.objects.create(
-        owner=owner,
         opponent_name=opponent_name,
         match_date=date(2026, 8, 16),
         is_home=is_home,
@@ -30,8 +28,8 @@ def test_match_list_is_public_and_contains_all_matches(
     user: User,
     other_user: User,
 ) -> None:
-    first = make_match(user)
-    second = make_match(other_user, opponent_name="City")
+    first = make_match()
+    second = make_match(opponent_name="City")
 
     response = client.get(reverse("match-list"))
 
@@ -73,7 +71,7 @@ def test_static_files_use_whitenoise() -> None:
 
 @pytest.mark.django_db
 def test_match_list_scores_are_derived_from_events(client: Client, user: User) -> None:
-    match = make_match(user)
+    match = make_match()
     tracker.models.ScoreEvent.objects.create(
         match=match, side=tracker.models.ScoreEvent.Side.HOME
     )
@@ -93,7 +91,7 @@ def test_match_list_scores_are_derived_from_events(client: Client, user: User) -
 
 @pytest.mark.django_db
 def test_match_detail_is_public_and_read_only(client: Client, user: User) -> None:
-    match = make_match(user)
+    match = make_match()
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
@@ -115,7 +113,7 @@ def test_match_detail_places_configured_team_on_correct_side(
     is_home: bool,
     heading: str,
 ) -> None:
-    match = make_match(user, is_home=is_home)
+    match = make_match(is_home=is_home)
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
@@ -123,11 +121,11 @@ def test_match_detail_places_configured_team_on_correct_side(
 
 
 @pytest.mark.django_db
-def test_owner_sees_match_write_actions(
+def test_authenticated_user_sees_match_write_actions(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
 
     response = client_for(user).get(reverse("match-detail", args=[match.pk]))
 
@@ -180,7 +178,7 @@ def test_match_create_keeps_notes_collapsed_by_default(
 
 
 @pytest.mark.django_db
-def test_match_create_assigns_owner(
+def test_match_create_persists_match(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
@@ -196,7 +194,7 @@ def test_match_create_assigns_owner(
 
     match = tracker.models.Match.objects.get()
     assert response.status_code == 302
-    assert match.owner == user
+    assert match.opponent_name == "United"
 
 
 @pytest.mark.django_db
@@ -204,7 +202,7 @@ def test_match_edit_populates_date_field(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
 
     response = client_for(user).get(reverse("match-edit", args=[match.pk]))
 
@@ -230,7 +228,7 @@ def test_match_writes_require_login(
     method: str,
     args: tuple[str, ...],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
     url = reverse(route_name, args=(match.pk, *args))
 
     response = getattr(client, method)(url)
@@ -241,29 +239,29 @@ def test_match_writes_require_login(
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    ("route_name", "method", "args"),
+    ("route_name", "method", "args", "expected_status"),
     [
-        ("match-edit", "get", ()),
-        ("match-delete", "post", ()),
-        ("match-score", "get", ()),
-        ("score-goal", "post", (tracker.models.ScoreEvent.Side.HOME,)),
-        ("score-undo", "post", (tracker.models.ScoreEvent.Side.HOME,)),
+        ("match-edit", "get", (), 200),
+        ("match-delete", "post", (), 302),
+        ("match-score", "get", (), 200),
+        ("score-goal", "post", (tracker.models.ScoreEvent.Side.HOME,), 200),
+        ("score-undo", "post", (tracker.models.ScoreEvent.Side.HOME,), 200),
     ],
 )
-def test_match_writes_reject_another_user(
-    user: User,
+def test_match_writes_allow_another_user(
     other_user: User,
     client_for: Callable[[User], Client],
     route_name: str,
     method: str,
     args: tuple[str, ...],
+    expected_status: int,
 ) -> None:
-    match = make_match(other_user)
+    match = make_match()
     url = reverse(route_name, args=(match.pk, *args))
 
-    response = getattr(client_for(user), method)(url)
+    response = getattr(client_for(other_user), method)(url)
 
-    assert response.status_code == 404
+    assert response.status_code == expected_status
 
 
 @pytest.mark.django_db
@@ -271,7 +269,7 @@ def test_goal_records_event_and_returns_score_fragment(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
 
     response = client_for(user).post(
         reverse("score-goal", args=[match.pk, tracker.models.ScoreEvent.Side.HOME]),
@@ -294,7 +292,7 @@ def test_goal_rejects_invalid_side(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
 
     response = client_for(user).post(
         reverse("score-goal", args=[match.pk, "invalid"]),
@@ -309,7 +307,7 @@ def test_undo_removes_most_recent_event_for_selected_side(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
     first_home = tracker.models.ScoreEvent.objects.create(
         match=match, side=tracker.models.ScoreEvent.Side.HOME
     )
@@ -333,11 +331,11 @@ def test_undo_removes_most_recent_event_for_selected_side(
 
 
 @pytest.mark.django_db
-def test_match_delete_removes_owned_match(
+def test_match_delete_removes_match(
     user: User,
     client_for: Callable[[User], Client],
 ) -> None:
-    match = make_match(user)
+    match = make_match()
     client = client_for(user)
     url = reverse("match-delete", args=[match.pk])
 
