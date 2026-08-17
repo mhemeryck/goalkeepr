@@ -156,7 +156,8 @@ body {
 
 .empty-state,
 .form-card,
-.auth-card {
+.auth-card,
+.not-found-card {
   max-width: 35rem;
   margin: 3rem auto;
   padding: clamp(1.5rem, 5vw, 3rem);
@@ -164,6 +165,44 @@ body {
   border-top: 0.35rem solid var(--pitch-light);
   border-radius: 0.3rem;
   box-shadow: 0 0.5rem 2rem rgb(16 42 35 / 8%);
+}
+
+.not-found-card {
+  text-align: center;
+}
+
+.not-found-card > [role="button"] {
+  margin-top: 1rem;
+}
+
+.missed-shot {
+  position: relative;
+  width: min(100%, 19rem);
+  height: 8rem;
+  margin: 0 auto 1.5rem;
+}
+
+.goal-frame {
+  position: absolute;
+  inset: 1rem 2.8rem 0;
+  background-image:
+    linear-gradient(rgb(16 42 35 / 12%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(16 42 35 / 12%) 1px, transparent 1px);
+  background-size: 1rem 1rem;
+  border: 0.35rem solid var(--pitch);
+  border-bottom: 0;
+}
+
+.missed-ball {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.15rem;
+  width: 1.8rem;
+  aspect-ratio: 1;
+  background: radial-gradient(circle at center, var(--pitch) 22%, white 24%);
+  border: 0.2rem solid var(--pitch);
+  border-radius: 50%;
+  transform: rotate(18deg);
 }
 
 .text-actions {

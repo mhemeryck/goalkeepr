@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Wide of the post | Goalkeepr{% endblock %}
+
+{% block content %}
+  <article class="not-found-card">
+    <div class="missed-shot" aria-hidden="true">
+      <div class="goal-frame"></div>
+      <div class="missed-ball"></div>
+    </div>
+    <p class="eyebrow">404 / No goal</p>
+    <h1>Wide of the post</h1>
+    <p>We couldn't find that page. It may have been moved, deleted, or never made it onto the pitch.</p>
+    <a href="{% url 'match-list' %}" role="button">Back to matches</a>
+  </article>
+{% endblock %}

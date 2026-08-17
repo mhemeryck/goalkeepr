@@ -101,6 +101,19 @@ def test_match_detail_is_public_and_read_only(client: Client, user: User) -> Non
 
 
 @pytest.mark.django_db
+def test_missing_match_uses_styled_not_found_page(client: Client) -> None:
+    response = client.get(reverse("match-detail", args=[999]))
+
+    assert response.status_code == 404
+    assert [template.name for template in response.templates] == [
+        "404.html",
+        "base.html",
+    ]
+    assert "Wide of the post" in response.text
+    assert reverse("match-list") in response.text
+
+
+@pytest.mark.django_db
 @override_settings(TEAM_NAME="Configured FC")
 @pytest.mark.parametrize(
     ("is_home", "heading"),
