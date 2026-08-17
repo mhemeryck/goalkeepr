@@ -171,3 +171,11 @@
 - [x] Remove direct user ownership from `Match`.
 - [x] Allow every authenticated household user to edit, delete, score, and undo every match.
 - [x] Keep match writes inaccessible to anonymous visitors.
+
+## Iteration 7: Live Match List
+
+- [x] Refresh the match list for authenticated and anonymous visitors every five seconds.
+- [x] Update only the match-list content without reloading the page.
+- [x] Show score changes, newly created matches, match edits, and match deletions.
+- [x] Keep the refresh endpoint public and read-only.
+- [x] Use the existing HTMX dependency without adding realtime infrastructure.

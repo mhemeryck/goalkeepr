@@ -6,6 +6,7 @@ register_converter(converters.ScoreSideConverter, "score_side")
 
 urlpatterns = [
     path("", views.match_list, name="match-list"),
+    path("matches/fragment/", views.match_list_fragment, name="match-list-fragment"),
     path("matches/add/", views.match_create, name="match-create"),
     path("matches/<int:pk>/", views.match_detail, name="match-detail"),
     path("matches/<int:pk>/edit/", views.match_edit, name="match-edit"),

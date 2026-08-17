@@ -37,6 +37,16 @@ def _scored_matches(
     )
 
 
+async def _match_list_context() -> dict[str, typing.Any]:
+    matches = [
+        match
+        async for match in _scored_matches(tracker.models.Match.objects.all()).order_by(
+            "-match_date", "-pk"
+        )
+    ]
+    return {"matches": matches}
+
+
 async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
     team_name = str(settings.TEAM_NAME)
     return {
@@ -54,13 +64,16 @@ async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
 
 async def match_list(request: HttpRequest) -> HttpResponse:
     request.user = await request.auser()
-    matches = [
-        match
-        async for match in _scored_matches(tracker.models.Match.objects.all()).order_by(
-            "-match_date", "-pk"
-        )
-    ]
-    return render(request, "tracker/match_list.html", {"matches": matches})
+    return render(request, "tracker/match_list.html", await _match_list_context())
+
+
+async def match_list_fragment(request: HttpRequest) -> HttpResponse:
+    request.user = await request.auser()
+    return render(
+        request,
+        "tracker/partials/match_list.html",
+        await _match_list_context(),
+    )
 
 
 @login_required
