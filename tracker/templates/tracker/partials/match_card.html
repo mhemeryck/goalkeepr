@@ -1,5 +1,5 @@
 <article class="match-card">
-  <a class="match-card-link" href="{% url 'match-detail' match.pk %}">
+  <a id="match-link-{{ match.pk }}" class="match-card-link" href="{% url 'match-detail' match.pk %}">
     <div>
       <span class="match-date">{{ match.match_date|date:"D j M Y" }}</span>
       <strong>{% if match.is_home %}{{ TEAM_NAME }}{% else %}{{ match.opponent_name }}{% endif %}</strong>

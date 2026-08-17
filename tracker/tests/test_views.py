@@ -119,6 +119,7 @@ def test_match_list_fragment_is_public_and_returns_updated_scores(
 
     assert initial_response.status_code == 200
     assert 'aria-label="Score 0 to 0"' in initial_response.text
+    assert f'id="match-link-{match.pk}"' in initial_response.text
     assert updated_response.status_code == 200
     assert 'aria-label="Score 1 to 0"' in updated_response.text
 
