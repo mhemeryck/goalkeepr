@@ -1,21 +1,18 @@
 from datetime import date, timedelta
 
 import pytest
-from django.contrib.auth.models import User
 from django.utils import timezone, translation
 
 import tracker.models
 
 
 @pytest.mark.django_db
-def test_matches_are_ordered_by_latest_date(user: User) -> None:
+def test_matches_are_ordered_by_latest_date() -> None:
     earlier = tracker.models.Match.objects.create(
-        owner=user,
         opponent_name="United",
         match_date=date(2026, 8, 16),
     )
     later = tracker.models.Match.objects.create(
-        owner=user,
         opponent_name="City",
         match_date=date(2026, 8, 17),
     )
@@ -24,9 +21,8 @@ def test_matches_are_ordered_by_latest_date(user: User) -> None:
 
 
 @pytest.mark.django_db
-def test_score_events_are_ordered_most_recent_first(user: User) -> None:
+def test_score_events_are_ordered_most_recent_first() -> None:
     match = tracker.models.Match.objects.create(
-        owner=user,
         opponent_name="United",
         match_date=date(2026, 8, 16),
     )
@@ -45,9 +41,8 @@ def test_score_events_are_ordered_most_recent_first(user: User) -> None:
 
 
 @pytest.mark.django_db
-def test_score_event_display_uses_translated_side_label(user: User) -> None:
+def test_score_event_display_uses_translated_side_label() -> None:
     match = tracker.models.Match.objects.create(
-        owner=user,
         opponent_name="United",
         match_date=date(2026, 8, 16),
     )
