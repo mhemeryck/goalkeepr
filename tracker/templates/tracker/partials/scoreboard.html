@@ -3,13 +3,17 @@
     <span class="venue">Home</span>
     <h2>{{ home_name }}</h2>
     <strong class="score">{{ home_score }}</strong>
-    <form method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+    <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
       {% csrf_token %}
-      <button class="goal-button" type="submit">+ Goal</button>
+      {% if household_side == 'home' %}
+        <label for="scorer-home">Scorer <small>(optional)</small></label>
+        <input id="scorer-home" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
+      {% endif %}
+      <button class="goal-button" type="submit" aria-label="Record goal for {{ home_name }}">+ Goal</button>
     </form>
     <form method="post" action="{% url 'score-undo' match.pk 'home' %}" hx-post="{% url 'score-undo' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
       {% csrf_token %}
-      <button class="undo-button" type="submit" {% if not home_score %}disabled{% endif %}>Undo</button>
+      <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ home_name }}" {% if not home_score %}disabled{% endif %}>Undo</button>
     </form>
   </div>
   <span class="score-divider">:</span>
@@ -17,13 +21,20 @@
     <span class="venue">Away</span>
     <h2>{{ away_name }}</h2>
     <strong class="score">{{ away_score }}</strong>
-    <form method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+    <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
       {% csrf_token %}
-      <button class="goal-button" type="submit">+ Goal</button>
+      {% if household_side == 'away' %}
+        <label for="scorer-away">Scorer <small>(optional)</small></label>
+        <input id="scorer-away" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
+      {% endif %}
+      <button class="goal-button" type="submit" aria-label="Record goal for {{ away_name }}">+ Goal</button>
     </form>
     <form method="post" action="{% url 'score-undo' match.pk 'away' %}" hx-post="{% url 'score-undo' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
       {% csrf_token %}
-      <button class="undo-button" type="submit" {% if not away_score %}disabled{% endif %}>Undo</button>
+      <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ away_name }}" {% if not away_score %}disabled{% endif %}>Undo</button>
     </form>
   </div>
+  <datalist id="household-players">
+    {% for name in player_names %}<option value="{{ name }}"></option>{% endfor %}
+  </datalist>
 </section>

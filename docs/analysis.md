@@ -158,13 +158,13 @@
 
 ## Iteration 5: Continuous Delivery
 
-- [ ] Create the public `mhemeryck/goalkeepr` GitHub repository with an MIT license.
-- [ ] Protect `master` with required pull requests and passing quality checks without adding unnecessary repository rules.
-- [ ] Run tests, linting, and type checks in GitHub Actions.
-- [ ] Publish a Linux AMD64 image to `mhemeryck/goalkeepr` on Docker Hub using the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets.
-- [ ] Create a tag and GitHub release after each merge to `master` using the `YYYY.MM.DD.N` CalVer format, where `N` permits multiple releases per day.
-- [ ] Tag each released Docker image with its CalVer version and `latest`.
-- [ ] Keep deployment manual.
+- [x] Create the public `mhemeryck/goalkeepr` GitHub repository with an MIT license.
+- [x] Protect `master` with required pull requests and passing quality checks without adding unnecessary repository rules.
+- [x] Run tests, linting, and type checks in GitHub Actions.
+- [x] Publish a Linux AMD64 image to `mhemeryck/goalkeepr` on Docker Hub using the `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` repository secrets.
+- [x] Create a tag and GitHub release after each merge to `master` using the `YYYY.MM.DD.N` CalVer format, where `N` permits multiple releases per day.
+- [x] Tag each released Docker image with its CalVer version and `latest`.
+- [x] Keep deployment manual.
 
 ## Iteration 6: Shared Household Match Access
 
@@ -179,3 +179,28 @@
 - [x] Show score changes, newly created matches, match edits, and match deletions.
 - [x] Keep the refresh endpoint public and read-only.
 - [x] Use the existing HTMX dependency without adding realtime infrastructure.
+
+## Iteration 8: Match Enhancements
+
+### Opponent Teams And Autocomplete
+
+- [x] Add a `Team` model for opponents, with case-insensitively unique names.
+- [x] Replace the match opponent name with a required team relationship.
+- [x] Select an existing opponent or transparently create a new one from the match form.
+
+### Optional Goal Scorers
+
+- [x] Keep a household player list.
+- [x] Optionally attribute household-team goals to a player.
+- [x] Keep opponent goals unattributed.
+
+### Match Player Positions
+
+- [x] Record player positions for a match.
+- [x] Support position changes during the match.
+
+### Future Fixtures
+
+- [x] Treat matches dated after today as future fixtures without a displayed score or score-entry controls.
+- [x] Keep matches dated today or earlier scoreable and editable.
+- [x] Do not add a match lifecycle model unless date-derived fixture behavior later proves insufficient.

@@ -2,4 +2,12 @@ from django.contrib import admin
 
 import tracker.models
 
-admin.site.register([tracker.models.Match, tracker.models.ScoreEvent])
+admin.site.register(
+    [
+        tracker.models.Team,
+        tracker.models.Player,
+        tracker.models.Match,
+        tracker.models.ScoreEvent,
+        tracker.models.PositionEvent,
+    ]
+)

@@ -1,0 +1,32 @@
+<div id="player-positions">
+  {% if current_positions %}
+    <dl class="position-list">
+      {% for event in current_positions %}
+        <div><dt>{{ event.player.name }}</dt><dd>{{ event.position }}</dd></div>
+      {% endfor %}
+    </dl>
+  {% else %}
+    <p class="position-empty">No player positions recorded.</p>
+  {% endif %}
+  <form class="position-form" method="post" action="{% url 'position-record' match.pk %}" hx-post="{% url 'position-record' match.pk %}" hx-target="#player-positions" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label>
+      Player
+      <input name="player_name" list="position-players" autocomplete="off" required placeholder="Player name">
+    </label>
+    <label>
+      Position
+      <input name="position" list="football-positions" required placeholder="Position">
+    </label>
+    <button type="submit">Record position</button>
+  </form>
+  <datalist id="position-players">
+    {% for name in player_names %}<option value="{{ name }}"></option>{% endfor %}
+  </datalist>
+  <datalist id="football-positions">
+    <option value="Goalkeeper"></option>
+    <option value="Defender"></option>
+    <option value="Midfielder"></option>
+    <option value="Forward"></option>
+  </datalist>
+</div>

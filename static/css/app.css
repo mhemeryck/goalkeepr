@@ -154,6 +154,17 @@ body {
   font-size: 2rem;
 }
 
+.fixture-badge {
+  padding: 0.35rem 0.65rem;
+  color: var(--pitch);
+  background: var(--lime);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
 .empty-state,
 .form-card,
 .auth-card,
@@ -297,6 +308,78 @@ body {
   border-color: rgb(255 255 255 / 55%);
 }
 
+.goal-form {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.goal-form label {
+  margin: 0;
+  color: white;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.goal-form input {
+  min-width: 0;
+  margin: 0;
+  background: white;
+}
+
+.fixture-notice,
+.position-card {
+  margin-top: 1.5rem;
+}
+
+.position-card {
+  padding: 1rem;
+  background: white;
+  border-top: 0.3rem solid var(--pitch-light);
+  border-radius: 0.3rem;
+  box-shadow: 0 0.5rem 2rem rgb(16 42 35 / 8%);
+}
+
+.position-card summary {
+  color: var(--pitch);
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.position-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.position-list dd {
+  margin: 0;
+  color: var(--pitch-light);
+  font-weight: 700;
+}
+
+.position-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  align-items: end;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+.position-form label,
+.position-form input,
+.position-form button {
+  margin: 0;
+}
+
+.event-scorer {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
 .match-meta dl {
   margin: 0;
 }
@@ -344,5 +427,9 @@ body {
 
   .scoreboard {
     margin-inline: -0.5rem;
+  }
+
+  .position-form {
+    grid-template-columns: 1fr;
   }
 }

@@ -6,9 +6,13 @@
   <div class="page-heading">
     <div>
       <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
-      <h1>{{ home_name }} {{ home_score }}–{{ away_score }} {{ away_name }}</h1>
+      {% if is_future_fixture %}
+        <h1>{{ home_name }} v {{ away_name }}</h1>
+      {% else %}
+        <h1>{{ home_name }} {{ home_score }}–{{ away_score }} {{ away_name }}</h1>
+      {% endif %}
     </div>
-    {% if can_modify %}<a role="button" href="{% url 'match-score' match.pk %}">Enter score</a>{% endif %}
+    {% if can_modify and not is_future_fixture %}<a role="button" href="{% url 'match-score' match.pk %}">Enter score</a>{% endif %}
   </div>
   {% if can_modify %}
     <div class="text-actions">
@@ -22,21 +26,26 @@
       {% if match.notes %}<div><dt>Notes</dt><dd>{{ match.notes|linebreaksbr }}</dd></div>{% endif %}
     </dl>
   </article>
-  <section class="event-history">
-    <h2>Goal history</h2>
-    {% if events %}
-      <ol>
-        {% for event in events reversed %}
-          <li>
-            <strong>
-              {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
-            </strong>
-            <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
-          </li>
-        {% endfor %}
-      </ol>
-    {% else %}
-      <p>No goals recorded.</p>
-    {% endif %}
-  </section>
+  {% if is_future_fixture %}
+    <p class="fixture-notice">Score entry becomes available on the match date.</p>
+  {% else %}
+    <section class="event-history">
+      <h2>Goal history</h2>
+      {% if events %}
+        <ol>
+          {% for event in events reversed %}
+            <li>
+              <strong>
+                {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
+                {% if can_modify and event.scorer %}<span class="event-scorer">by {{ event.scorer.name }}</span>{% endif %}
+              </strong>
+              <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p>No goals recorded.</p>
+      {% endif %}
+    </section>
+  {% endif %}
 {% endblock %}

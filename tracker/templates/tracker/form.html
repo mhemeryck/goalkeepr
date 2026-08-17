@@ -11,6 +11,10 @@
       <p>
         {{ form.opponent_name.label_tag }}
         {{ form.opponent_name }}
+        <small id="opponent-help">Choose an existing team or enter a new name.</small>
+        <datalist id="opponent-teams">
+          {% for name in opponent_names %}<option value="{{ name }}"></option>{% endfor %}
+        </datalist>
         {{ form.opponent_name.errors }}
       </p>
       <p>

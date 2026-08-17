@@ -18,4 +18,9 @@ urlpatterns = [
     path(
         "matches/<int:pk>/undo/<score_side:side>/", views.score_undo, name="score-undo"
     ),
+    path(
+        "matches/<int:pk>/positions/",
+        views.position_record,
+        name="position-record",
+    ),
 ]

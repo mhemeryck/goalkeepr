@@ -11,4 +11,8 @@
     <a href="{% url 'match-detail' match.pk %}">Match details</a>
   </div>
   {% include "tracker/partials/scoreboard.html" %}
+  <details class="position-card">
+    <summary>Player positions</summary>
+    {% include "tracker/partials/player_positions.html" %}
+  </details>
 {% endblock %}
