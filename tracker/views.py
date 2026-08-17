@@ -4,9 +4,8 @@ from asgiref.sync import sync_to_async
 from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.db.models import Count, Q, QuerySet
-from django.http import Http404, HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -18,19 +17,9 @@ async def _form_is_valid(form: forms.BaseForm) -> bool:
     return await sync_to_async(form.is_valid)()
 
 
-async def _authenticated_user(request: HttpRequest) -> User:
-    user = await request.auser()
-    if not isinstance(user, User):
-        raise Http404
-    request.user = user
-    return user
-
-
-async def _match(pk: int) -> tracker.models.Match:
-    try:
-        return await tracker.models.Match.objects.aget(pk=pk)
-    except tracker.models.Match.DoesNotExist as error:
-        raise Http404 from error
+async def _not_found_response(request: HttpRequest) -> HttpResponse:
+    request.user = await request.auser()
+    return render(request, "404.html", status=404)
 
 
 def _scored_matches(
@@ -76,7 +65,7 @@ async def match_list(request: HttpRequest) -> HttpResponse:
 
 @login_required
 async def match_create(request: HttpRequest) -> HttpResponse:
-    await _authenticated_user(request)
+    request.user = await request.auser()
     form = tracker.forms.MatchForm(request.POST or None)
     if request.method == "POST" and await _form_is_valid(form):
         match = form.save(commit=False)
@@ -90,7 +79,10 @@ async def match_create(request: HttpRequest) -> HttpResponse:
 
 
 async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
-    match = await _match(pk)
+    try:
+        match = await tracker.models.Match.objects.aget(pk=pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
     events = [event async for event in match.score_events.all()]
     user = await request.auser()
     request.user = user
@@ -102,8 +94,11 @@ async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 async def match_edit(request: HttpRequest, pk: int) -> HttpResponse:
-    await _authenticated_user(request)
-    match = await _match(pk)
+    try:
+        match = await tracker.models.Match.objects.aget(pk=pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
+    request.user = await request.auser()
     form = tracker.forms.MatchForm(request.POST or None, instance=match)
     if request.method == "POST" and await _form_is_valid(form):
         await sync_to_async(form.save)()
@@ -117,11 +112,14 @@ async def match_edit(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 async def match_delete(request: HttpRequest, pk: int) -> HttpResponse:
-    await _authenticated_user(request)
-    match = await _match(pk)
+    try:
+        match = await tracker.models.Match.objects.aget(pk=pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
     if request.method == "POST":
         await match.adelete()
         return redirect("match-list")
+    request.user = await request.auser()
     return render(
         request,
         "tracker/confirm_delete.html",
@@ -131,22 +129,25 @@ async def match_delete(request: HttpRequest, pk: int) -> HttpResponse:
 
 @login_required
 async def match_score(request: HttpRequest, pk: int) -> HttpResponse:
-    await _authenticated_user(request)
-    match = await _match(pk)
+    try:
+        match = await tracker.models.Match.objects.aget(pk=pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
+    request.user = await request.auser()
     return render(request, "tracker/match_score.html", await _score_context(match))
-
-
-def _valid_side(side: str) -> bool:
-    return side in tracker.models.ScoreEvent.Side.values
 
 
 @require_POST
 @login_required
-async def score_goal(request: HttpRequest, pk: int, side: str) -> HttpResponse:
-    await _authenticated_user(request)
-    match = await _match(pk)
-    if not _valid_side(side):
-        raise Http404
+async def score_goal(
+    request: HttpRequest,
+    pk: int,
+    side: tracker.models.ScoreEvent.Side,
+) -> HttpResponse:
+    try:
+        match = await tracker.models.Match.objects.aget(pk=pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
     await tracker.models.ScoreEvent.objects.acreate(match=match, side=side)
     return render(
         request, "tracker/partials/scoreboard.html", await _score_context(match)
@@ -155,11 +156,15 @@ async def score_goal(request: HttpRequest, pk: int, side: str) -> HttpResponse:
 
 @require_POST
 @login_required
-async def score_undo(request: HttpRequest, pk: int, side: str) -> HttpResponse:
-    await _authenticated_user(request)
-    match = await _match(pk)
-    if not _valid_side(side):
-        raise Http404
+async def score_undo(
+    request: HttpRequest,
+    pk: int,
+    side: tracker.models.ScoreEvent.Side,
+) -> HttpResponse:
+    try:
+        match = await tracker.models.Match.objects.aget(pk=pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
     event = await tracker.models.ScoreEvent.objects.filter(
         match=match, side=side
     ).afirst()

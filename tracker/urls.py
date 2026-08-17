@@ -1,6 +1,8 @@
-from django.urls import path
+from django.urls import path, register_converter
 
-from tracker import views
+from tracker import converters, views
+
+register_converter(converters.ScoreSideConverter, "score_side")
 
 urlpatterns = [
     path("", views.match_list, name="match-list"),
@@ -9,6 +11,10 @@ urlpatterns = [
     path("matches/<int:pk>/edit/", views.match_edit, name="match-edit"),
     path("matches/<int:pk>/delete/", views.match_delete, name="match-delete"),
     path("matches/<int:pk>/score/", views.match_score, name="match-score"),
-    path("matches/<int:pk>/goal/<str:side>/", views.score_goal, name="score-goal"),
-    path("matches/<int:pk>/undo/<str:side>/", views.score_undo, name="score-undo"),
+    path(
+        "matches/<int:pk>/goal/<score_side:side>/", views.score_goal, name="score-goal"
+    ),
+    path(
+        "matches/<int:pk>/undo/<score_side:side>/", views.score_undo, name="score-undo"
+    ),
 ]
