@@ -89,6 +89,41 @@ def test_match_list_scores_are_derived_from_events(client: Client, user: User) -
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_match_list_polls_for_updates(
+    client: Client,
+    user: User,
+    authenticated: bool,
+) -> None:
+    if authenticated:
+        client.force_login(user)
+
+    response = client.get(reverse("match-list"))
+
+    assert f'hx-get="{reverse("match-list-fragment")}"' in response.text
+    assert 'hx-trigger="every 5s"' in response.text
+
+
+@pytest.mark.django_db
+def test_match_list_fragment_is_public_and_returns_updated_scores(
+    client: Client,
+) -> None:
+    match = make_match()
+
+    initial_response = client.get(reverse("match-list-fragment"))
+    tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+    )
+    updated_response = client.get(reverse("match-list-fragment"))
+
+    assert initial_response.status_code == 200
+    assert 'aria-label="Score 0 to 0"' in initial_response.text
+    assert updated_response.status_code == 200
+    assert 'aria-label="Score 1 to 0"' in updated_response.text
+
+
+@pytest.mark.django_db
 def test_match_detail_is_public_and_read_only(client: Client, user: User) -> None:
     match = make_match()
 

@@ -10,21 +10,5 @@
     </div>
     {% if user.is_authenticated %}<a role="button" href="{% url 'match-create' %}">Add match</a>{% endif %}
   </div>
-  {% if matches %}
-    <div class="match-list">
-      {% for match in matches %}
-        {% include "tracker/partials/match_card.html" %}
-      {% endfor %}
-    </div>
-  {% else %}
-    <section class="empty-state">
-      <h2>No matches yet</h2>
-      {% if user.is_authenticated %}
-        <p>Record your first match to start the score history.</p>
-        <a role="button" href="{% url 'match-create' %}">Add a match</a>
-      {% else %}
-        <p>There are no match results to show yet.</p>
-      {% endif %}
-    </section>
-  {% endif %}
+  {% include "tracker/partials/match_list.html" %}
 {% endblock %}
