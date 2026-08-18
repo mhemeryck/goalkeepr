@@ -1,0 +1,14 @@
+<article id="player-{{ player.pk }}" class="player-row player-row-editing">
+  <form class="inline-player-form" method="post" action="{% url 'player-edit' player.pk %}" hx-post="{% url 'player-edit' player.pk %}" hx-target="#player-{{ player.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}
+    <label class="visually-hidden" for="player-name-{{ player.pk }}">Player name</label>
+    <input id="player-name-{{ player.pk }}" name="name" value="{{ form.name.value }}" maxlength="100" required autofocus>
+    <button type="submit">Save</button>
+    {{ form.name.errors }}
+    {{ form.non_field_errors }}
+  </form>
+  <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player? Their goals will remain recorded.')">
+    {% csrf_token %}
+    <button class="delete-player-button" type="submit" aria-label="Delete {{ player.name }}" title="Delete {{ player.name }}">&times;</button>
+  </form>
+</article>

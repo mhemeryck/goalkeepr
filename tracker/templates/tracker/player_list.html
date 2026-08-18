@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Players | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Household team</p>
+      <h1>Players</h1>
+    </div>
+  </div>
+  {% if players %}
+    <div class="player-list">
+      {% for player in players %}
+        {% if editing_player_id == player.pk %}
+          {% include "tracker/partials/player_edit_row.html" with form=edit_form %}
+        {% else %}
+          {% include "tracker/partials/player_row.html" %}
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <article class="empty-state">
+      <h2>No players yet</h2>
+      <p>Players are added automatically when you record a scorer.</p>
+    </article>
+  {% endif %}
+{% endblock %}

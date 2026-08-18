@@ -1,10 +1,11 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import Client, override_settings
 from django.urls import resolve, reverse
+from django.utils import timezone
 
 import tracker.models
 
@@ -13,10 +14,12 @@ def make_match(
     *,
     opponent_name: str = "United",
     is_home: bool = True,
+    match_date: date = date(2026, 8, 16),
 ) -> tracker.models.Match:
+    opponent, _ = tracker.models.Team.objects.get_or_create(name=opponent_name)
     return tracker.models.Match.objects.create(
-        opponent_name=opponent_name,
-        match_date=date(2026, 8, 16),
+        opponent=opponent,
+        match_date=match_date,
         is_home=is_home,
     )
 
@@ -251,7 +254,65 @@ def test_match_create_persists_match(
 
     match = tracker.models.Match.objects.get()
     assert response.status_code == 302
-    assert match.opponent_name == "United"
+    assert match.opponent.name == "United"
+
+
+@pytest.mark.django_db
+def test_match_form_reuses_opponent_case_insensitively(
+    user: User,
+    client: Client,
+) -> None:
+    existing = tracker.models.Team.objects.create(name="United")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-create"),
+        {
+            "opponent_name": " united ",
+            "match_date": "2026-08-16",
+            "is_home": "True",
+        },
+    )
+
+    assert response.status_code == 302
+    assert tracker.models.Team.objects.count() == 1
+    assert tracker.models.Match.objects.get().opponent == existing
+
+
+@pytest.mark.django_db
+def test_match_form_offers_existing_opponents(
+    user: User,
+    client: Client,
+) -> None:
+    tracker.models.Team.objects.create(name="City")
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
+    assert '<datalist id="opponent-teams">' in response.text
+    assert '<option value="City">' in response.text
+
+
+@pytest.mark.django_db
+def test_creating_future_match_redirects_to_fixture_detail(
+    user: User,
+    client: Client,
+) -> None:
+    client.force_login(user)
+    future_date = timezone.localdate() + timedelta(days=1)
+
+    response = client.post(
+        reverse("match-create"),
+        {
+            "opponent_name": "United",
+            "match_date": future_date.isoformat(),
+            "is_home": "True",
+        },
+    )
+
+    match = tracker.models.Match.objects.get()
+    assert response.status_code == 302
+    assert response["Location"] == reverse("match-detail", args=[match.pk])
 
 
 @pytest.mark.django_db
@@ -345,6 +406,295 @@ def test_goal_records_event_and_returns_score_fragment(
     ]
     assert response.context["home_score"] == 1
     assert response.context["away_score"] == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("is_home", [True, False])
+def test_household_goal_can_record_optional_scorer(
+    user: User,
+    client: Client,
+    is_home: bool,
+) -> None:
+    match = make_match(is_home=is_home)
+    player = tracker.models.Player.objects.create(name="Alex")
+    side = (
+        tracker.models.ScoreEvent.Side.HOME
+        if is_home
+        else tracker.models.ScoreEvent.Side.AWAY
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse("score-goal", args=[match.pk, side]),
+        {"scorer_name": "Alex"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert tracker.models.ScoreEvent.objects.get().scorer == player
+    assert "Latest goals" in response.text
+    assert "Alex" in response.text
+    assert f"{reverse('player-list')}#player-{player.pk}" in response.text
+
+
+@pytest.mark.django_db
+def test_scoreboard_aligns_goal_controls_when_scorer_is_home_only(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match(is_home=True)
+    client.force_login(user)
+
+    response = client.get(reverse("match-score", args=[match.pk]))
+
+    assert response.text.count('class="scorer-slot') == 2
+    assert response.text.count("scorer-placeholder") == 1
+
+
+@pytest.mark.django_db
+def test_opponent_goal_ignores_submitted_scorer(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match(is_home=True)
+    tracker.models.Player.objects.create(name="Alex")
+    client.force_login(user)
+
+    response = client.post(
+        reverse(
+            "score-goal",
+            args=[match.pk, tracker.models.ScoreEvent.Side.AWAY],
+        ),
+        {"scorer_name": "Alex"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert tracker.models.ScoreEvent.objects.get().scorer is None
+    assert "Scorer not recorded" not in response.text
+
+
+@pytest.mark.django_db
+def test_public_scorer_name_links_only_when_authenticated(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    player = tracker.models.Player.objects.create(name="Alex")
+    tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+        scorer=player,
+    )
+
+    public_response = client.get(reverse("match-detail", args=[match.pk]))
+    client.force_login(user)
+    private_response = client.get(reverse("match-detail", args=[match.pk]))
+
+    player_url = f"{reverse('player-list')}#player-{player.pk}"
+    assert "by Alex" in public_response.text
+    assert player_url not in public_response.text
+    assert "by Alex" in private_response.text
+    assert player_url in private_response.text
+
+
+@pytest.mark.django_db
+def test_scoreboard_shows_only_five_most_recent_goals(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    players = [
+        tracker.models.Player.objects.create(name=f"Player {number}")
+        for number in range(6)
+    ]
+    for player in players:
+        tracker.models.ScoreEvent.objects.create(
+            match=match,
+            side=tracker.models.ScoreEvent.Side.HOME,
+            scorer=player,
+        )
+    client.force_login(user)
+
+    response = client.get(reverse("match-score", args=[match.pk]))
+
+    assert response.status_code == 200
+    assert [event.scorer for event in response.context["recent_events"]] == list(
+        reversed(players[1:])
+    )
+    marker = '<span class="goal-marker" aria-hidden="true"></span>'
+    assert response.text.count(marker) == 5
+
+
+@pytest.mark.django_db
+def test_player_management_requires_login(client: Client) -> None:
+    response = client.get(reverse("player-list"))
+
+    assert response.status_code == 302
+    assert response["Location"].startswith(reverse("login"))
+
+
+@pytest.mark.django_db
+def test_player_list_shows_inline_edit_and_total_goals(
+    user: User,
+    client: Client,
+) -> None:
+    player = tracker.models.Player.objects.create(name="Alxe")
+    match = make_match()
+    tracker.models.ScoreEvent.objects.bulk_create(
+        [
+            tracker.models.ScoreEvent(
+                match=match,
+                side=tracker.models.ScoreEvent.Side.HOME,
+                scorer=player,
+            ),
+            tracker.models.ScoreEvent(
+                match=match,
+                side=tracker.models.ScoreEvent.Side.HOME,
+                scorer=player,
+            ),
+        ]
+    )
+    client.force_login(user)
+
+    list_response = client.get(reverse("player-list"))
+
+    assert 'id="player-' in list_response.text
+    assert "2 goals" in list_response.text
+    assert 'aria-label="Delete Alxe"' in list_response.text
+    assert f'hx-get="{reverse("player-edit", args=[player.pk])}"' in list_response.text
+    assert "Edit" not in list_response.text
+
+
+@pytest.mark.django_db
+def test_player_can_be_edited_from_player_list(user: User, client: Client) -> None:
+    player = tracker.models.Player.objects.create(name="Alxe")
+    client.force_login(user)
+
+    edit_response = client.post(
+        reverse("player-edit", args=[player.pk]),
+        {"name": "Alex"},
+    )
+
+    player.refresh_from_db()
+    assert edit_response.status_code == 302
+    assert edit_response["Location"] == reverse("player-list")
+    assert player.name == "Alex"
+
+
+@pytest.mark.django_db
+def test_clicking_player_returns_inline_textbox(user: User, client: Client) -> None:
+    player = tracker.models.Player.objects.create(name="Alex")
+    client.force_login(user)
+
+    response = client.get(
+        reverse("player-edit", args=[player.pk]),
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert response.templates[0].name == "tracker/partials/player_edit_row.html"
+    assert 'value="Alex"' in response.text
+
+    save_response = client.post(
+        reverse("player-edit", args=[player.pk]),
+        {"name": "Alexandra"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert save_response.status_code == 200
+    assert save_response.templates[0].name == "tracker/partials/player_row.html"
+    assert "Alexandra" in save_response.text
+    assert 'name="name"' not in save_response.text
+
+
+@pytest.mark.django_db
+def test_inline_player_edit_shows_duplicate_name_error(
+    user: User,
+    client: Client,
+) -> None:
+    tracker.models.Player.objects.create(name="Alex")
+    player = tracker.models.Player.objects.create(name="Sam")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("player-edit", args=[player.pk]),
+        {"name": "alex"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert response.templates[0].name == "tracker/partials/player_edit_row.html"
+    assert "Constraint" in response.text
+    assert tracker.models.Player.objects.filter(name="Sam").exists()
+
+
+@pytest.mark.django_db
+def test_deleting_player_keeps_goal_without_scorer(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    player = tracker.models.Player.objects.create(name="Wrong name")
+    event = tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+        scorer=player,
+    )
+    client.force_login(user)
+
+    response = client.post(reverse("player-delete", args=[player.pk]))
+
+    event.refresh_from_db()
+    assert response.status_code == 302
+    assert response["Location"] == reverse("player-list")
+    assert not tracker.models.Player.objects.exists()
+    assert event.scorer is None
+
+
+@pytest.mark.django_db
+def test_future_fixture_hides_score_and_blocks_score_writes(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match(match_date=timezone.localdate() + timedelta(days=1))
+    client.force_login(user)
+
+    list_response = client.get(reverse("match-list"))
+    detail_response = client.get(reverse("match-detail", args=[match.pk]))
+    score_response = client.get(reverse("match-score", args=[match.pk]))
+    goal_response = client.post(
+        reverse(
+            "score-goal",
+            args=[match.pk, tracker.models.ScoreEvent.Side.HOME],
+        )
+    )
+
+    assert "Fixture" in list_response.text
+    assert "Score 0 to 0" not in list_response.text
+    assert " v United" in detail_response.text
+    assert reverse("match-score", args=[match.pk]) not in detail_response.text
+    assert score_response.status_code == 302
+    assert score_response["Location"] == reverse("match-detail", args=[match.pk])
+    assert goal_response.status_code == 403
+    assert not tracker.models.ScoreEvent.objects.exists()
+
+
+@pytest.mark.django_db
+def test_match_on_today_is_scoreable(user: User, client: Client) -> None:
+    match = make_match(match_date=timezone.localdate())
+    client.force_login(user)
+
+    response = client.post(
+        reverse(
+            "score-goal",
+            args=[match.pk, tracker.models.ScoreEvent.Side.HOME],
+        ),
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert tracker.models.ScoreEvent.objects.filter(match=match).count() == 1
 
 
 def test_score_side_url_is_converted_to_enum() -> None:
