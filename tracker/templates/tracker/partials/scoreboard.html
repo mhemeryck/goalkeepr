@@ -59,7 +59,7 @@
       <ol>
         {% for event in recent_events %}
           <li{% if forloop.first %} class="latest-goal"{% endif %}>
-            <span class="goal-marker">{{ forloop.revcounter }}</span>
+            <span class="goal-marker" aria-hidden="true"></span>
             <span class="goal-summary">
               <small>{% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}</small>
               {% if event.scorer %}

@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone, translation
 
@@ -66,3 +67,30 @@ def test_team_names_are_unique_case_insensitively() -> None:
 
     with pytest.raises(IntegrityError), transaction.atomic():
         make_team("united")
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("is_home", "opponent_side"),
+    [
+        (True, tracker.models.ScoreEvent.Side.AWAY),
+        (False, tracker.models.ScoreEvent.Side.HOME),
+    ],
+)
+def test_opponent_goal_rejects_scorer(
+    is_home: bool,
+    opponent_side: tracker.models.ScoreEvent.Side,
+) -> None:
+    match = tracker.models.Match.objects.create(
+        opponent=make_team(),
+        match_date=date(2026, 8, 16),
+        is_home=is_home,
+    )
+    event = tracker.models.ScoreEvent(
+        match=match,
+        side=opponent_side,
+        scorer=tracker.models.Player.objects.create(name="Alex"),
+    )
+
+    with pytest.raises(ValidationError, match="household-team goals"):
+        event.full_clean()

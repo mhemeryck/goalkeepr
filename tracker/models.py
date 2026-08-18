@@ -1,5 +1,6 @@
 import typing
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Lower
 from django.utils import timezone
@@ -83,3 +84,13 @@ class ScoreEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.Side(self.side).label} goal at {self.recorded_at}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.scorer_id is None or self.match_id is None:
+            return
+        household_side = self.Side.HOME if self.match.is_home else self.Side.AWAY
+        if self.side != household_side:
+            raise ValidationError(
+                {"scorer": "A scorer can only be recorded for household-team goals."}
+            )

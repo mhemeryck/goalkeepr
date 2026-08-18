@@ -2,10 +2,15 @@
 
 import django.db.models.deletion
 import django.db.models.functions.text
+from django.apps.registry import Apps
 from django.db import migrations, models
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 
-def migrate_opponents(apps, schema_editor):
+def migrate_opponents(
+    apps: Apps,
+    schema_editor: BaseDatabaseSchemaEditor,
+) -> None:
     match_model = apps.get_model("tracker", "Match")
     team_model = apps.get_model("tracker", "Team")
     for match in match_model.objects.all():
@@ -17,7 +22,10 @@ def migrate_opponents(apps, schema_editor):
         match.save(update_fields=["opponent"])
 
 
-def restore_opponent_names(apps, schema_editor):
+def restore_opponent_names(
+    apps: Apps,
+    schema_editor: BaseDatabaseSchemaEditor,
+) -> None:
     match_model = apps.get_model("tracker", "Match")
     for match in match_model.objects.select_related("opponent"):
         match.opponent_name = match.opponent.name

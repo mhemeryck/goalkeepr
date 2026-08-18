@@ -522,6 +522,8 @@ def test_scoreboard_shows_only_five_most_recent_goals(
     assert [event.scorer for event in response.context["recent_events"]] == list(
         reversed(players[1:])
     )
+    marker = '<span class="goal-marker" aria-hidden="true"></span>'
+    assert response.text.count(marker) == 5
 
 
 @pytest.mark.django_db
