@@ -432,6 +432,8 @@ def test_household_goal_can_record_optional_scorer(
 
     assert response.status_code == 200
     assert tracker.models.ScoreEvent.objects.get().scorer == player
+    assert "Latest goals" in response.text
+    assert "Alex" in response.text
 
 
 @pytest.mark.django_db
@@ -478,29 +480,79 @@ def test_scorer_name_is_private_on_public_match_detail(
 
 
 @pytest.mark.django_db
-def test_recording_position_appends_change_and_shows_latest(
+def test_scoreboard_shows_only_five_most_recent_goals(
     user: User,
     client: Client,
 ) -> None:
     match = make_match()
-    player = tracker.models.Player.objects.create(name="Alex")
-    tracker.models.PositionEvent.objects.create(
+    players = [
+        tracker.models.Player.objects.create(name=f"Player {number}")
+        for number in range(6)
+    ]
+    for player in players:
+        tracker.models.ScoreEvent.objects.create(
+            match=match,
+            side=tracker.models.ScoreEvent.Side.HOME,
+            scorer=player,
+        )
+    client.force_login(user)
+
+    response = client.get(reverse("match-score", args=[match.pk]))
+
+    assert response.status_code == 200
+    assert [event.scorer for event in response.context["recent_events"]] == list(
+        reversed(players[1:])
+    )
+
+
+@pytest.mark.django_db
+def test_player_management_requires_login(client: Client) -> None:
+    response = client.get(reverse("player-list"))
+
+    assert response.status_code == 302
+    assert response["Location"].startswith(reverse("login"))
+
+
+@pytest.mark.django_db
+def test_player_list_and_edit(user: User, client: Client) -> None:
+    player = tracker.models.Player.objects.create(name="Alxe")
+    client.force_login(user)
+
+    list_response = client.get(reverse("player-list"))
+    edit_response = client.post(
+        reverse("player-edit", args=[player.pk]),
+        {"name": "Alex"},
+    )
+
+    player.refresh_from_db()
+    assert "Alxe" in list_response.text
+    assert reverse("player-edit", args=[player.pk]) in list_response.text
+    assert edit_response.status_code == 302
+    assert edit_response["Location"] == reverse("player-list")
+    assert player.name == "Alex"
+
+
+@pytest.mark.django_db
+def test_deleting_player_keeps_goal_without_scorer(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    player = tracker.models.Player.objects.create(name="Wrong name")
+    event = tracker.models.ScoreEvent.objects.create(
         match=match,
-        player=player,
-        position="Defender",
+        side=tracker.models.ScoreEvent.Side.HOME,
+        scorer=player,
     )
     client.force_login(user)
 
-    response = client.post(
-        reverse("position-record", args=[match.pk]),
-        {"player_name": "Alex", "position": "Midfielder"},
-        HTTP_HX_REQUEST="true",
-    )
+    response = client.post(reverse("player-delete", args=[player.pk]))
 
-    assert response.status_code == 200
-    assert tracker.models.PositionEvent.objects.count() == 2
-    assert "Alex" in response.text
-    assert "Midfielder" in response.text
+    event.refresh_from_db()
+    assert response.status_code == 302
+    assert response["Location"] == reverse("player-list")
+    assert not tracker.models.Player.objects.exists()
+    assert event.scorer is None
 
 
 @pytest.mark.django_db

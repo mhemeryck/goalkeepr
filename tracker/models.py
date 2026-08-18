@@ -41,7 +41,6 @@ class Player(models.Model):
 class Match(models.Model):
     if typing.TYPE_CHECKING:
         score_events: models.Manager[ScoreEvent]
-        position_events: models.Manager[PositionEvent]
 
     opponent = models.ForeignKey(
         Team,
@@ -72,7 +71,7 @@ class ScoreEvent(models.Model):
     side = models.CharField(max_length=4, choices=Side.choices)
     scorer = models.ForeignKey(
         Player,
-        on_delete=models.PROTECT,
+        on_delete=models.SET_NULL,
         related_name="score_events",
         null=True,
         blank=True,
@@ -84,24 +83,3 @@ class ScoreEvent(models.Model):
 
     def __str__(self) -> str:
         return f"{self.Side(self.side).label} goal at {self.recorded_at}"
-
-
-class PositionEvent(models.Model):
-    match = models.ForeignKey(
-        Match,
-        on_delete=models.CASCADE,
-        related_name="position_events",
-    )
-    player = models.ForeignKey(
-        Player,
-        on_delete=models.PROTECT,
-        related_name="position_events",
-    )
-    position = models.CharField(max_length=50)
-    recorded_at = models.DateTimeField(default=timezone.now)
-
-    class Meta:
-        ordering = ["-recorded_at", "-pk"]
-
-    def __str__(self) -> str:
-        return f"{self.player.name}: {self.position}"

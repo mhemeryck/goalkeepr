@@ -1,5 +1,6 @@
-<section id="scoreboard" class="scoreboard" aria-live="polite">
-  <div class="side-panel">
+<section id="scoreboard" class="scoreboard-shell" aria-live="polite">
+  <div class="scoreboard">
+    <div class="side-panel">
     <span class="venue">Home</span>
     <h2>{{ home_name }}</h2>
     <strong class="score">{{ home_score }}</strong>
@@ -15,9 +16,9 @@
       {% csrf_token %}
       <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ home_name }}" {% if not home_score %}disabled{% endif %}>Undo</button>
     </form>
-  </div>
-  <span class="score-divider">:</span>
-  <div class="side-panel">
+    </div>
+    <span class="score-divider">:</span>
+    <div class="side-panel">
     <span class="venue">Away</span>
     <h2>{{ away_name }}</h2>
     <strong class="score">{{ away_score }}</strong>
@@ -33,7 +34,24 @@
       {% csrf_token %}
       <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ away_name }}" {% if not away_score %}disabled{% endif %}>Undo</button>
     </form>
+    </div>
   </div>
+  {% if recent_events %}
+    <section class="recent-goals">
+      <h2>Latest goals</h2>
+      <ol>
+        {% for event in recent_events %}
+          <li{% if forloop.first %} class="latest-goal"{% endif %}>
+            <span>
+              {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
+              {% if event.scorer %}<strong data-scorer="{{ event.scorer.name }}">{{ event.scorer.name }}</strong>{% endif %}
+            </span>
+            <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
+          </li>
+        {% endfor %}
+      </ol>
+    </section>
+  {% endif %}
   <datalist id="household-players">
     {% for name in player_names %}<option value="{{ name }}"></option>{% endfor %}
   </datalist>

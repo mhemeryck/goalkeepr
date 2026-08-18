@@ -53,12 +53,10 @@ class GoalForm(forms.Form):
         return str(self.cleaned_data["scorer_name"]).strip()
 
 
-class PositionForm(forms.Form):
-    player_name = forms.CharField(max_length=100)
-    position = forms.CharField(max_length=50)
+class PlayerForm(forms.ModelForm[tracker.models.Player]):
+    class Meta:
+        model = tracker.models.Player
+        fields = ["name"]
 
-    def clean_player_name(self) -> str:
-        return str(self.cleaned_data["player_name"]).strip()
-
-    def clean_position(self) -> str:
-        return str(self.cleaned_data["position"]).strip()
+    def clean_name(self) -> str:
+        return str(self.cleaned_data["name"]).strip()

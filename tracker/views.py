@@ -71,20 +71,11 @@ async def _team_names() -> list[str]:
     ]
 
 
-async def _current_positions(
-    match: tracker.models.Match,
-) -> list[tracker.models.PositionEvent]:
-    events = [
-        event async for event in match.position_events.select_related("player").all()
-    ]
-    current: dict[int, tracker.models.PositionEvent] = {}
-    for event in events:
-        current.setdefault(event.player_id, event)
-    return sorted(current.values(), key=lambda event: event.player.name.casefold())
-
-
 async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
     team_name = str(settings.TEAM_NAME)
+    recent_events = [
+        event async for event in match.score_events.select_related("scorer").all()[:5]
+    ]
     return {
         "match": match,
         "home_name": team_name if match.is_home else match.opponent.name,
@@ -101,7 +92,7 @@ async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
             else tracker.models.ScoreEvent.Side.AWAY
         ),
         "player_names": await _player_names(),
-        "current_positions": await _current_positions(match),
+        "recent_events": recent_events,
     }
 
 
@@ -168,6 +159,50 @@ async def match_list_fragment(request: HttpRequest) -> HttpResponse:
         request,
         "tracker/partials/match_list.html",
         await _match_list_context(),
+    )
+
+
+@login_required
+async def player_list(request: HttpRequest) -> HttpResponse:
+    request.user = await request.auser()
+    players = [player async for player in tracker.models.Player.objects.all()]
+    return render(request, "tracker/player_list.html", {"players": players})
+
+
+@login_required
+async def player_edit(request: HttpRequest, pk: int) -> HttpResponse:
+    try:
+        player = await tracker.models.Player.objects.aget(pk=pk)
+    except tracker.models.Player.DoesNotExist:
+        return await _not_found_response(request)
+    request.user = await request.auser()
+    form = tracker.forms.PlayerForm(request.POST or None, instance=player)
+    if request.method == "POST" and await _form_is_valid(form):
+        await sync_to_async(form.save)()
+        return redirect("player-list")
+    return render(request, "tracker/player_form.html", {"form": form})
+
+
+@login_required
+async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    try:
+        player = await tracker.models.Player.objects.aget(pk=pk)
+    except tracker.models.Player.DoesNotExist:
+        return await _not_found_response(request)
+    request.user = await request.auser()
+    if request.method == "POST":
+        await player.adelete()
+        return redirect("player-list")
+    return render(
+        request,
+        "tracker/confirm_delete.html",
+        {
+            "object": player,
+            "kind": "player",
+            "delete_message": (
+                f"Delete {player.name}? Their goals will remain without a scorer."
+            ),
+        },
     )
 
 
@@ -323,34 +358,3 @@ async def score_undo(
     return render(
         request, "tracker/partials/scoreboard.html", await _score_context(match)
     )
-
-
-@require_POST
-@login_required
-async def position_record(request: HttpRequest, pk: int) -> HttpResponse:
-    try:
-        match = await tracker.models.Match.objects.select_related("opponent").aget(
-            pk=pk
-        )
-    except tracker.models.Match.DoesNotExist:
-        return await _not_found_response(request)
-    if _is_future_fixture(match):
-        return HttpResponseForbidden("Future fixtures cannot have player positions.")
-    form = tracker.forms.PositionForm(request.POST)
-    if not await _form_is_valid(form):
-        return HttpResponse("Player and position are required.", status=400)
-    player = await sync_to_async(_get_or_create_player)(
-        str(form.cleaned_data["player_name"])
-    )
-    await tracker.models.PositionEvent.objects.acreate(
-        match=match,
-        player=player,
-        position=str(form.cleaned_data["position"]),
-    )
-    if request.headers.get("HX-Request") == "true":
-        return render(
-            request,
-            "tracker/partials/player_positions.html",
-            await _score_context(match),
-        )
-    return redirect("match-score", pk=match.pk)

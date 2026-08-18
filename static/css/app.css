@@ -250,6 +250,11 @@ body {
   box-shadow: inset 0 0 0 1px rgb(255 255 255 / 15%), 0 1rem 3rem rgb(16 42 35 / 18%);
 }
 
+.scoreboard-shell {
+  display: grid;
+  gap: 1rem;
+}
+
 .side-panel {
   display: grid;
   min-width: 0;
@@ -326,26 +331,30 @@ body {
   background: white;
 }
 
-.fixture-notice,
-.position-card {
+.fixture-notice {
   margin-top: 1.5rem;
 }
 
-.position-card {
-  padding: 1rem;
+.recent-goals {
+  padding: 0.9rem 1rem;
   background: white;
-  border-top: 0.3rem solid var(--pitch-light);
+  border-left: 0.3rem solid var(--lime);
   border-radius: 0.3rem;
   box-shadow: 0 0.5rem 2rem rgb(16 42 35 / 8%);
 }
 
-.position-card summary {
-  color: var(--pitch);
-  font-size: 1.1rem;
-  font-weight: 800;
+.recent-goals h2 {
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
 }
 
-.position-list div {
+.recent-goals ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recent-goals li {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -353,24 +362,19 @@ body {
   border-bottom: 1px solid #ddd;
 }
 
-.position-list dd {
-  margin: 0;
-  color: var(--pitch-light);
-  font-weight: 700;
+.recent-goals li:last-child {
+  border-bottom: 0;
 }
 
-.position-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  align-items: end;
-  gap: 0.75rem;
-  margin: 1rem 0 0;
+.recent-goals span {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
-.position-form label,
-.position-form input,
-.position-form button {
-  margin: 0;
+.recent-goals time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .event-scorer {
@@ -378,6 +382,25 @@ body {
   color: var(--muted);
   font-size: 0.8rem;
   font-weight: 400;
+}
+
+.player-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.player-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem 1.2rem;
+}
+
+.player-actions {
+  display: flex;
+  gap: 1rem;
 }
 
 .match-meta dl {
@@ -429,7 +452,7 @@ body {
     margin-inline: -0.5rem;
   }
 
-  .position-form {
-    grid-template-columns: 1fr;
+  .player-list article {
+    align-items: start;
   }
 }

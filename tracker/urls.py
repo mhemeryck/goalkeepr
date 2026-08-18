@@ -12,15 +12,13 @@ urlpatterns = [
     path("matches/<int:pk>/edit/", views.match_edit, name="match-edit"),
     path("matches/<int:pk>/delete/", views.match_delete, name="match-delete"),
     path("matches/<int:pk>/score/", views.match_score, name="match-score"),
+    path("players/", views.player_list, name="player-list"),
+    path("players/<int:pk>/edit/", views.player_edit, name="player-edit"),
+    path("players/<int:pk>/delete/", views.player_delete, name="player-delete"),
     path(
         "matches/<int:pk>/goal/<score_side:side>/", views.score_goal, name="score-goal"
     ),
     path(
         "matches/<int:pk>/undo/<score_side:side>/", views.score_undo, name="score-undo"
-    ),
-    path(
-        "matches/<int:pk>/positions/",
-        views.position_record,
-        name="position-record",
     ),
 ]

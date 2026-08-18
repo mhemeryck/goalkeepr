@@ -193,11 +193,9 @@
 - [x] Keep a household player list.
 - [x] Optionally attribute household-team goals to a player.
 - [x] Keep opponent goals unattributed.
-
-### Match Player Positions
-
-- [x] Record player positions for a match.
-- [x] Support position changes during the match.
+- [x] Show recent goals and scorer feedback on the score-entry screen.
+- [x] Allow authenticated users to rename and delete players.
+- [x] Keep goals without scorer attribution when their player is deleted.
 
 ### Future Fixtures
 

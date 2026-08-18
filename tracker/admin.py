@@ -8,6 +8,5 @@ admin.site.register(
         tracker.models.Player,
         tracker.models.Match,
         tracker.models.ScoreEvent,
-        tracker.models.PositionEvent,
     ]
 )

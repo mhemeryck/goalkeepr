@@ -66,25 +66,3 @@ def test_team_names_are_unique_case_insensitively() -> None:
 
     with pytest.raises(IntegrityError), transaction.atomic():
         make_team("united")
-
-
-@pytest.mark.django_db
-def test_position_changes_preserve_history() -> None:
-    player = tracker.models.Player.objects.create(name="Alex")
-    match = tracker.models.Match.objects.create(
-        opponent=make_team(),
-        match_date=date(2026, 8, 16),
-    )
-    first = tracker.models.PositionEvent.objects.create(
-        match=match,
-        player=player,
-        position="Defender",
-        recorded_at=timezone.now() - timedelta(minutes=1),
-    )
-    latest = tracker.models.PositionEvent.objects.create(
-        match=match,
-        player=player,
-        position="Midfielder",
-    )
-
-    assert list(match.position_events.all()) == [latest, first]

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Players | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Household team</p>
+      <h1>Players</h1>
+    </div>
+  </div>
+  {% if players %}
+    <div class="player-list">
+      {% for player in players %}
+        <article>
+          <strong>{{ player.name }}</strong>
+          <div class="player-actions">
+            <a href="{% url 'player-edit' player.pk %}">Edit</a>
+            <a class="danger-link" href="{% url 'player-delete' player.pk %}">Delete</a>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <article class="empty-state">
+      <h2>No players yet</h2>
+      <p>Players are added automatically when you record a scorer.</p>
+    </article>
+  {% endif %}
+{% endblock %}
