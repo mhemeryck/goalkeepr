@@ -471,6 +471,7 @@ def test_opponent_goal_ignores_submitted_scorer(
 
     assert response.status_code == 200
     assert tracker.models.ScoreEvent.objects.get().scorer is None
+    assert "Scorer not recorded" not in response.text
 
 
 @pytest.mark.django_db
@@ -555,9 +556,10 @@ def test_player_list_shows_inline_edit_and_total_goals(
     list_response = client.get(reverse("player-list"))
 
     assert 'id="player-' in list_response.text
-    assert 'value="Alxe"' in list_response.text
     assert "2 goals" in list_response.text
     assert 'aria-label="Delete Alxe"' in list_response.text
+    assert f'hx-get="{reverse("player-edit", args=[player.pk])}"' in list_response.text
+    assert "Edit" not in list_response.text
 
 
 @pytest.mark.django_db
@@ -577,13 +579,50 @@ def test_player_can_be_edited_from_player_list(user: User, client: Client) -> No
 
 
 @pytest.mark.django_db
-def test_player_edit_has_no_separate_page(user: User, client: Client) -> None:
+def test_clicking_player_returns_inline_textbox(user: User, client: Client) -> None:
     player = tracker.models.Player.objects.create(name="Alex")
     client.force_login(user)
 
-    response = client.get(reverse("player-edit", args=[player.pk]))
+    response = client.get(
+        reverse("player-edit", args=[player.pk]),
+        HTTP_HX_REQUEST="true",
+    )
 
-    assert response.status_code == 405
+    assert response.status_code == 200
+    assert response.templates[0].name == "tracker/partials/player_edit_row.html"
+    assert 'value="Alex"' in response.text
+
+    save_response = client.post(
+        reverse("player-edit", args=[player.pk]),
+        {"name": "Alexandra"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert save_response.status_code == 200
+    assert save_response.templates[0].name == "tracker/partials/player_row.html"
+    assert "Alexandra" in save_response.text
+    assert 'name="name"' not in save_response.text
+
+
+@pytest.mark.django_db
+def test_inline_player_edit_shows_duplicate_name_error(
+    user: User,
+    client: Client,
+) -> None:
+    tracker.models.Player.objects.create(name="Alex")
+    player = tracker.models.Player.objects.create(name="Sam")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("player-edit", args=[player.pk]),
+        {"name": "alex"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert response.status_code == 200
+    assert response.templates[0].name == "tracker/partials/player_edit_row.html"
+    assert "Constraint" in response.text
+    assert tracker.models.Player.objects.filter(name="Sam").exists()
 
 
 @pytest.mark.django_db

@@ -71,6 +71,15 @@ async def _team_names() -> list[str]:
     ]
 
 
+async def _players_with_goal_counts() -> list[tracker.models.Player]:
+    return [
+        player
+        async for player in tracker.models.Player.objects.annotate(
+            goal_count=Count("score_events")
+        ).order_by("name", "pk")
+    ]
+
+
 async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
     team_name = str(settings.TEAM_NAME)
     recent_events = [
@@ -165,42 +174,50 @@ async def match_list_fragment(request: HttpRequest) -> HttpResponse:
 @login_required
 async def player_list(request: HttpRequest) -> HttpResponse:
     request.user = await request.auser()
-    players = [
-        player
-        async for player in tracker.models.Player.objects.annotate(
-            goal_count=Count("score_events")
-        ).order_by("name", "pk")
-    ]
-    return render(request, "tracker/player_list.html", {"players": players})
+    return render(
+        request,
+        "tracker/player_list.html",
+        {"players": await _players_with_goal_counts()},
+    )
 
 
-@require_POST
 @login_required
 async def player_edit(request: HttpRequest, pk: int) -> HttpResponse:
     try:
-        player = await tracker.models.Player.objects.aget(pk=pk)
+        player = await tracker.models.Player.objects.annotate(
+            goal_count=Count("score_events")
+        ).aget(pk=pk)
     except tracker.models.Player.DoesNotExist:
         return await _not_found_response(request)
     request.user = await request.auser()
     form = tracker.forms.PlayerForm(request.POST or None, instance=player)
-    if await _form_is_valid(form):
+    if request.method == "POST" and await _form_is_valid(form):
         await sync_to_async(form.save)()
+        if request.headers.get("HX-Request") == "true":
+            player = await tracker.models.Player.objects.annotate(
+                goal_count=Count("score_events")
+            ).aget(pk=pk)
+            return render(
+                request,
+                "tracker/partials/player_row.html",
+                {"player": player},
+            )
         return redirect("player-list")
-    players = [
-        item
-        async for item in tracker.models.Player.objects.annotate(
-            goal_count=Count("score_events")
-        ).order_by("name", "pk")
-    ]
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "tracker/partials/player_edit_row.html",
+            {"player": player, "form": form},
+        )
     return render(
         request,
         "tracker/player_list.html",
         {
-            "players": players,
+            "players": await _players_with_goal_counts(),
             "edit_form": form,
             "editing_player_id": player.pk,
         },
-        status=400,
+        status=400 if form.is_bound else 200,
     )
 
 

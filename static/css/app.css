@@ -480,35 +480,19 @@ body {
   outline-offset: 0.15rem;
 }
 
-.player-editor {
-  margin: 0;
-  padding: 1rem 0 1rem 1.2rem;
-}
-
-.player-editor summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  cursor: pointer;
-  list-style: none;
-}
-
-.player-editor summary::-webkit-details-marker {
-  display: none;
-}
-
-.player-identity {
+.player-name {
   display: grid;
+  padding: 1rem 0 1rem 1.2rem;
+  color: var(--ink);
+  text-decoration: none;
 }
 
-.player-identity small,
-.edit-hint {
+.player-name small {
   color: var(--muted);
   font-size: 0.78rem;
 }
 
-.edit-hint {
+.player-name:hover strong {
   text-decoration: underline;
 }
 
@@ -517,12 +501,8 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 0.75rem;
-  margin: 1rem 0 0;
-}
-
-.inline-player-form label {
-  grid-column: 1 / -1;
   margin: 0;
+  padding: 0.75rem 0 0.75rem 1rem;
 }
 
 .inline-player-form input,
@@ -548,6 +528,17 @@ body {
   border-color: transparent;
   font-size: 1.5rem;
   line-height: 1;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .match-meta dl {
@@ -595,7 +586,7 @@ body {
     width: 100%;
   }
 
-  .scoreboard {
+  .scoreboard-shell {
     margin-inline: -0.5rem;
   }
 
@@ -607,7 +598,4 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .inline-player-form label {
-    grid-column: auto;
-  }
 }

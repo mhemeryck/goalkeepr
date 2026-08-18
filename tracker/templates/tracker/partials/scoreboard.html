@@ -64,8 +64,6 @@
               <small>{% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}</small>
               {% if event.scorer %}
                 <a data-scorer="{{ event.scorer.name }}" href="{% url 'player-list' %}#player-{{ event.scorer_id }}">{{ event.scorer.name }}</a>
-              {% else %}
-                <strong>Scorer not recorded</strong>
               {% endif %}
             </span>
             <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
