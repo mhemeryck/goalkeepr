@@ -475,7 +475,7 @@ def test_opponent_goal_ignores_submitted_scorer(
 
 
 @pytest.mark.django_db
-def test_scorer_name_is_private_on_public_match_detail(
+def test_public_scorer_name_links_only_when_authenticated(
     user: User,
     client: Client,
 ) -> None:
@@ -491,9 +491,11 @@ def test_scorer_name_is_private_on_public_match_detail(
     client.force_login(user)
     private_response = client.get(reverse("match-detail", args=[match.pk]))
 
-    assert "Alex" not in public_response.text
+    player_url = f"{reverse('player-list')}#player-{player.pk}"
+    assert "by Alex" in public_response.text
+    assert player_url not in public_response.text
     assert "by Alex" in private_response.text
-    assert f"{reverse('player-list')}#player-{player.pk}" in private_response.text
+    assert player_url in private_response.text
 
 
 @pytest.mark.django_db
