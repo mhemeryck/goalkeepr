@@ -12,12 +12,32 @@
   {% if players %}
     <div class="player-list">
       {% for player in players %}
-        <article>
-          <strong>{{ player.name }}</strong>
-          <div class="player-actions">
-            <a href="{% url 'player-edit' player.pk %}">Edit</a>
-            <a class="danger-link" href="{% url 'player-delete' player.pk %}">Delete</a>
-          </div>
+        <article id="player-{{ player.pk }}" class="player-row">
+          <details class="player-editor"{% if editing_player_id == player.pk %} open{% endif %}>
+            <summary>
+              <span class="player-identity">
+                <strong>{{ player.name }}</strong>
+                <small>{{ player.goal_count }} goal{{ player.goal_count|pluralize }}</small>
+              </span>
+              <span class="edit-hint">Edit</span>
+            </summary>
+            <form class="inline-player-form" method="post" action="{% url 'player-edit' player.pk %}">
+              {% csrf_token %}
+              <label for="player-name-{{ player.pk }}">Player name</label>
+              {% if editing_player_id == player.pk %}
+                <input id="player-name-{{ player.pk }}" name="name" value="{{ edit_form.name.value }}" maxlength="100" required>
+                {{ edit_form.name.errors }}
+                {{ edit_form.non_field_errors }}
+              {% else %}
+                <input id="player-name-{{ player.pk }}" name="name" value="{{ player.name }}" maxlength="100" required>
+              {% endif %}
+              <button type="submit">Save</button>
+            </form>
+          </details>
+          <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player? Their goals will remain recorded.')">
+            {% csrf_token %}
+            <button class="delete-player-button" type="submit" aria-label="Delete {{ player.name }}" title="Delete {{ player.name }}">&times;</button>
+          </form>
         </article>
       {% endfor %}
     </div>

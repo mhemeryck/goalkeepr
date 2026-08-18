@@ -165,10 +165,16 @@ async def match_list_fragment(request: HttpRequest) -> HttpResponse:
 @login_required
 async def player_list(request: HttpRequest) -> HttpResponse:
     request.user = await request.auser()
-    players = [player async for player in tracker.models.Player.objects.all()]
+    players = [
+        player
+        async for player in tracker.models.Player.objects.annotate(
+            goal_count=Count("score_events")
+        ).order_by("name", "pk")
+    ]
     return render(request, "tracker/player_list.html", {"players": players})
 
 
+@require_POST
 @login_required
 async def player_edit(request: HttpRequest, pk: int) -> HttpResponse:
     try:
@@ -177,12 +183,28 @@ async def player_edit(request: HttpRequest, pk: int) -> HttpResponse:
         return await _not_found_response(request)
     request.user = await request.auser()
     form = tracker.forms.PlayerForm(request.POST or None, instance=player)
-    if request.method == "POST" and await _form_is_valid(form):
+    if await _form_is_valid(form):
         await sync_to_async(form.save)()
         return redirect("player-list")
-    return render(request, "tracker/player_form.html", {"form": form})
+    players = [
+        item
+        async for item in tracker.models.Player.objects.annotate(
+            goal_count=Count("score_events")
+        ).order_by("name", "pk")
+    ]
+    return render(
+        request,
+        "tracker/player_list.html",
+        {
+            "players": players,
+            "edit_form": form,
+            "editing_player_id": player.pk,
+        },
+        status=400,
+    )
 
 
+@require_POST
 @login_required
 async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
     try:
@@ -190,20 +212,8 @@ async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
     except tracker.models.Player.DoesNotExist:
         return await _not_found_response(request)
     request.user = await request.auser()
-    if request.method == "POST":
-        await player.adelete()
-        return redirect("player-list")
-    return render(
-        request,
-        "tracker/confirm_delete.html",
-        {
-            "object": player,
-            "kind": "player",
-            "delete_message": (
-                f"Delete {player.name}? Their goals will remain without a scorer."
-            ),
-        },
-    )
+    await player.adelete()
+    return redirect("player-list")
 
 
 @login_required

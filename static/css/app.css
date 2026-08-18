@@ -252,7 +252,12 @@ body {
 
 .scoreboard-shell {
   display: grid;
-  gap: 1rem;
+  filter: drop-shadow(0 1rem 2rem rgb(16 42 35 / 18%));
+}
+
+.scoreboard.has-feed {
+  border-radius: 0.5rem 0.5rem 0 0;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 15%);
 }
 
 .side-panel {
@@ -318,17 +323,38 @@ body {
   gap: 0.45rem;
 }
 
-.goal-form label {
+.scorer-slot {
+  display: grid;
+  align-content: end;
+  min-height: 5.2rem;
+}
+
+.scorer-slot label {
   margin: 0;
   color: white;
   font-size: 0.78rem;
   text-align: left;
 }
 
-.goal-form input {
+.scorer-slot input {
   min-width: 0;
   margin: 0;
   background: white;
+}
+
+.scorer-placeholder {
+  display: grid;
+  gap: 0.35rem;
+  visibility: hidden;
+}
+
+.scorer-placeholder > span:first-child {
+  min-height: 1.2rem;
+}
+
+.scorer-placeholder > span:last-child {
+  min-height: 3rem;
+  border: 1px solid transparent;
 }
 
 .fixture-notice {
@@ -336,16 +362,34 @@ body {
 }
 
 .recent-goals {
-  padding: 0.9rem 1rem;
-  background: white;
-  border-left: 0.3rem solid var(--lime);
-  border-radius: 0.3rem;
-  box-shadow: 0 0.5rem 2rem rgb(16 42 35 / 8%);
+  padding: 1rem clamp(1rem, 4vw, 2.5rem) 1.25rem;
+  color: white;
+  background: var(--pitch-light);
+  border-top: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 0 0 0.5rem 0.5rem;
 }
 
-.recent-goals h2 {
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
+.feed-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.feed-heading h2 {
+  margin: 0;
+  color: white;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.feed-dot {
+  width: 0.55rem;
+  aspect-ratio: 1;
+  background: var(--lime);
+  border-radius: 50%;
+  box-shadow: 0 0 0 0.25rem rgb(217 249 157 / 15%);
 }
 
 .recent-goals ol {
@@ -355,25 +399,57 @@ body {
 }
 
 .recent-goals li {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
   gap: 1rem;
-  padding: 0.45rem 0;
-  border-bottom: 1px solid #ddd;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 0.25rem;
 }
 
 .recent-goals li:last-child {
   border-bottom: 0;
 }
 
-.recent-goals span {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+.recent-goals .latest-goal {
+  background: rgb(217 249 157 / 10%);
+}
+
+.goal-marker {
+  display: grid;
+  width: 1.75rem;
+  aspect-ratio: 1;
+  place-items: center;
+  color: var(--pitch);
+  background: var(--lime);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.goal-summary {
+  display: grid;
+  min-width: 0;
+}
+
+.goal-summary small {
+  color: rgb(255 255 255 / 65%);
+}
+
+.goal-summary a,
+.goal-summary strong {
+  color: white;
+  overflow-wrap: anywhere;
+}
+
+.goal-summary a {
+  font-weight: 800;
 }
 
 .recent-goals time {
-  color: var(--muted);
+  color: rgb(255 255 255 / 65%);
+  font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -390,17 +466,88 @@ body {
 }
 
 .player-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  scroll-margin-top: 1rem;
+}
+
+.player-row:target {
+  outline: 0.2rem solid var(--lime);
+  outline-offset: 0.15rem;
+}
+
+.player-editor {
+  margin: 0;
+  padding: 1rem 0 1rem 1.2rem;
+}
+
+.player-editor summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin: 0;
-  padding: 1rem 1.2rem;
+  cursor: pointer;
+  list-style: none;
 }
 
-.player-actions {
+.player-editor summary::-webkit-details-marker {
+  display: none;
+}
+
+.player-identity {
+  display: grid;
+}
+
+.player-identity small,
+.edit-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.edit-hint {
+  text-decoration: underline;
+}
+
+.inline-player-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+}
+
+.inline-player-form label {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.inline-player-form input,
+.inline-player-form button,
+.player-delete,
+.delete-player-button {
+  margin: 0;
+}
+
+.player-delete {
+  padding: 0.75rem 0.75rem 0 0;
+}
+
+.delete-player-button {
   display: flex;
-  gap: 1rem;
+  width: 2.5rem;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  color: var(--danger);
+  background: transparent;
+  border-color: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
 }
 
 .match-meta dl {
@@ -454,5 +601,13 @@ body {
 
   .player-list article {
     align-items: start;
+  }
+
+  .inline-player-form {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-player-form label {
+    grid-column: auto;
   }
 }

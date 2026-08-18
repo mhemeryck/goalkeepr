@@ -194,7 +194,7 @@
 - [x] Optionally attribute household-team goals to a player.
 - [x] Keep opponent goals unattributed.
 - [x] Show recent goals and scorer feedback on the score-entry screen.
-- [x] Allow authenticated users to rename and delete players.
+- [x] Show total goals and allow authenticated users to rename and delete players on one page.
 - [x] Keep goals without scorer attribution when their player is deleted.
 
 ### Future Fixtures

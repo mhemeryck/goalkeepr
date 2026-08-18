@@ -434,6 +434,21 @@ def test_household_goal_can_record_optional_scorer(
     assert tracker.models.ScoreEvent.objects.get().scorer == player
     assert "Latest goals" in response.text
     assert "Alex" in response.text
+    assert f"{reverse('player-list')}#player-{player.pk}" in response.text
+
+
+@pytest.mark.django_db
+def test_scoreboard_aligns_goal_controls_when_scorer_is_home_only(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match(is_home=True)
+    client.force_login(user)
+
+    response = client.get(reverse("match-score", args=[match.pk]))
+
+    assert response.text.count('class="scorer-slot') == 2
+    assert response.text.count("scorer-placeholder") == 1
 
 
 @pytest.mark.django_db
@@ -477,6 +492,7 @@ def test_scorer_name_is_private_on_public_match_detail(
 
     assert "Alex" not in public_response.text
     assert "by Alex" in private_response.text
+    assert f"{reverse('player-list')}#player-{player.pk}" in private_response.text
 
 
 @pytest.mark.django_db
@@ -514,22 +530,60 @@ def test_player_management_requires_login(client: Client) -> None:
 
 
 @pytest.mark.django_db
-def test_player_list_and_edit(user: User, client: Client) -> None:
+def test_player_list_shows_inline_edit_and_total_goals(
+    user: User,
+    client: Client,
+) -> None:
     player = tracker.models.Player.objects.create(name="Alxe")
+    match = make_match()
+    tracker.models.ScoreEvent.objects.bulk_create(
+        [
+            tracker.models.ScoreEvent(
+                match=match,
+                side=tracker.models.ScoreEvent.Side.HOME,
+                scorer=player,
+            ),
+            tracker.models.ScoreEvent(
+                match=match,
+                side=tracker.models.ScoreEvent.Side.HOME,
+                scorer=player,
+            ),
+        ]
+    )
     client.force_login(user)
 
     list_response = client.get(reverse("player-list"))
+
+    assert 'id="player-' in list_response.text
+    assert 'value="Alxe"' in list_response.text
+    assert "2 goals" in list_response.text
+    assert 'aria-label="Delete Alxe"' in list_response.text
+
+
+@pytest.mark.django_db
+def test_player_can_be_edited_from_player_list(user: User, client: Client) -> None:
+    player = tracker.models.Player.objects.create(name="Alxe")
+    client.force_login(user)
+
     edit_response = client.post(
         reverse("player-edit", args=[player.pk]),
         {"name": "Alex"},
     )
 
     player.refresh_from_db()
-    assert "Alxe" in list_response.text
-    assert reverse("player-edit", args=[player.pk]) in list_response.text
     assert edit_response.status_code == 302
     assert edit_response["Location"] == reverse("player-list")
     assert player.name == "Alex"
+
+
+@pytest.mark.django_db
+def test_player_edit_has_no_separate_page(user: User, client: Client) -> None:
+    player = tracker.models.Player.objects.create(name="Alex")
+    client.force_login(user)
+
+    response = client.get(reverse("player-edit", args=[player.pk]))
+
+    assert response.status_code == 405
 
 
 @pytest.mark.django_db

@@ -1,50 +1,72 @@
 <section id="scoreboard" class="scoreboard-shell" aria-live="polite">
-  <div class="scoreboard">
+  <div class="scoreboard{% if recent_events %} has-feed{% endif %}">
     <div class="side-panel">
-    <span class="venue">Home</span>
-    <h2>{{ home_name }}</h2>
-    <strong class="score">{{ home_score }}</strong>
-    <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
-      {% csrf_token %}
-      {% if household_side == 'home' %}
-        <label for="scorer-home">Scorer <small>(optional)</small></label>
-        <input id="scorer-home" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
-      {% endif %}
-      <button class="goal-button" type="submit" aria-label="Record goal for {{ home_name }}">+ Goal</button>
-    </form>
-    <form method="post" action="{% url 'score-undo' match.pk 'home' %}" hx-post="{% url 'score-undo' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
-      {% csrf_token %}
-      <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ home_name }}" {% if not home_score %}disabled{% endif %}>Undo</button>
-    </form>
+      <span class="venue">Home</span>
+      <h2>{{ home_name }}</h2>
+      <strong class="score">{{ home_score }}</strong>
+      <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+        {% csrf_token %}
+        <div class="scorer-slot">
+          {% if household_side == 'home' %}
+            <label for="scorer-home">Scorer <small>(optional)</small></label>
+            <input id="scorer-home" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
+          {% else %}
+            <div class="scorer-placeholder" aria-hidden="true">
+              <span>Scorer</span>
+              <span></span>
+            </div>
+          {% endif %}
+        </div>
+        <button class="goal-button" type="submit" aria-label="Record goal for {{ home_name }}">+ Goal</button>
+      </form>
+      <form method="post" action="{% url 'score-undo' match.pk 'home' %}" hx-post="{% url 'score-undo' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+        {% csrf_token %}
+        <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ home_name }}" {% if not home_score %}disabled{% endif %}>Undo</button>
+      </form>
     </div>
     <span class="score-divider">:</span>
     <div class="side-panel">
-    <span class="venue">Away</span>
-    <h2>{{ away_name }}</h2>
-    <strong class="score">{{ away_score }}</strong>
-    <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
-      {% csrf_token %}
-      {% if household_side == 'away' %}
-        <label for="scorer-away">Scorer <small>(optional)</small></label>
-        <input id="scorer-away" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
-      {% endif %}
-      <button class="goal-button" type="submit" aria-label="Record goal for {{ away_name }}">+ Goal</button>
-    </form>
-    <form method="post" action="{% url 'score-undo' match.pk 'away' %}" hx-post="{% url 'score-undo' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
-      {% csrf_token %}
-      <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ away_name }}" {% if not away_score %}disabled{% endif %}>Undo</button>
-    </form>
+      <span class="venue">Away</span>
+      <h2>{{ away_name }}</h2>
+      <strong class="score">{{ away_score }}</strong>
+      <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+        {% csrf_token %}
+        <div class="scorer-slot">
+          {% if household_side == 'away' %}
+            <label for="scorer-away">Scorer <small>(optional)</small></label>
+            <input id="scorer-away" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
+          {% else %}
+            <div class="scorer-placeholder" aria-hidden="true">
+              <span>Scorer</span>
+              <span></span>
+            </div>
+          {% endif %}
+        </div>
+        <button class="goal-button" type="submit" aria-label="Record goal for {{ away_name }}">+ Goal</button>
+      </form>
+      <form method="post" action="{% url 'score-undo' match.pk 'away' %}" hx-post="{% url 'score-undo' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
+        {% csrf_token %}
+        <button class="undo-button" type="submit" aria-label="Undo latest goal for {{ away_name }}" {% if not away_score %}disabled{% endif %}>Undo</button>
+      </form>
     </div>
   </div>
   {% if recent_events %}
     <section class="recent-goals">
-      <h2>Latest goals</h2>
+      <div class="feed-heading">
+        <span class="feed-dot"></span>
+        <h2>Latest goals</h2>
+      </div>
       <ol>
         {% for event in recent_events %}
           <li{% if forloop.first %} class="latest-goal"{% endif %}>
-            <span>
-              {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
-              {% if event.scorer %}<strong data-scorer="{{ event.scorer.name }}">{{ event.scorer.name }}</strong>{% endif %}
+            <span class="goal-marker">{{ forloop.revcounter }}</span>
+            <span class="goal-summary">
+              <small>{% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}</small>
+              {% if event.scorer %}
+                <a data-scorer="{{ event.scorer.name }}" href="{% url 'player-list' %}#player-{{ event.scorer_id }}">{{ event.scorer.name }}</a>
+              {% else %}
+                <strong>Scorer not recorded</strong>
+              {% endif %}
             </span>
             <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
           </li>

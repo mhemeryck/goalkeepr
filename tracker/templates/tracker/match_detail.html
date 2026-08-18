@@ -37,7 +37,7 @@
             <li>
               <strong>
                 {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
-                {% if can_modify and event.scorer %}<span class="event-scorer">by {{ event.scorer.name }}</span>{% endif %}
+                {% if can_modify and event.scorer %}<a class="event-scorer" href="{% url 'player-list' %}#player-{{ event.scorer_id }}">by {{ event.scorer.name }}</a>{% endif %}
               </strong>
               <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
             </li>
