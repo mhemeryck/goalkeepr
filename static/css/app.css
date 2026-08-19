@@ -267,7 +267,8 @@ body {
   text-align: center;
 }
 
-.side-panel h2 {
+.side-panel h2,
+.side-panel h2 a {
   min-height: 2.7em;
   margin: 0;
   color: white;
@@ -460,12 +461,14 @@ body {
   font-weight: 400;
 }
 
-.player-list {
+.player-list,
+.team-list {
   display: grid;
   gap: 0.75rem;
 }
 
-.player-list article {
+.player-list article,
+.team-list article {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
@@ -475,28 +478,33 @@ body {
   scroll-margin-top: 1rem;
 }
 
-.player-row:target {
+.player-row:target,
+.team-row:target {
   outline: 0.2rem solid var(--lime);
   outline-offset: 0.15rem;
 }
 
-.player-name {
+.player-name,
+.team-name {
   display: grid;
   padding: 1rem 0 1rem 1.2rem;
   color: var(--ink);
   text-decoration: none;
 }
 
-.player-name small {
+.player-name small,
+.team-name small {
   color: var(--muted);
   font-size: 0.78rem;
 }
 
-.player-name:hover strong {
+.player-name:hover strong,
+.team-name:hover strong {
   text-decoration: underline;
 }
 
-.inline-player-form {
+.inline-player-form,
+.inline-team-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
@@ -507,16 +515,22 @@ body {
 
 .inline-player-form input,
 .inline-player-form button,
+.inline-team-form input,
+.inline-team-form button,
 .player-delete,
-.delete-player-button {
+.team-delete,
+.delete-player-button,
+.delete-team-button {
   margin: 0;
 }
 
-.player-delete {
+.player-delete,
+.team-delete {
   padding: 0.75rem 0.75rem 0 0;
 }
 
-.delete-player-button {
+.delete-player-button,
+.delete-team-button {
   display: flex;
   width: 2.5rem;
   min-height: 2.5rem;
@@ -577,6 +591,18 @@ body {
     margin-bottom: 1.5rem;
   }
 
+  .site-header nav {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-block: 0.75rem;
+  }
+
+  .nav-actions {
+    flex-basis: 100%;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
   .page-heading {
     align-items: start;
     flex-direction: column;
@@ -590,11 +616,13 @@ body {
     margin-inline: -0.5rem;
   }
 
-  .player-list article {
+  .player-list article,
+  .team-list article {
     align-items: start;
   }
 
-  .inline-player-form {
+  .inline-player-form,
+  .inline-team-form {
     grid-template-columns: 1fr;
   }
 

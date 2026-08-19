@@ -202,3 +202,12 @@
 - [x] Treat matches dated after today as future fixtures without a displayed score or score-entry controls.
 - [x] Keep matches dated today or earlier scoreable and editable.
 - [x] Do not add a match lifecycle model unless date-derived fixture behavior later proves insufficient.
+
+## Iteration 9: Team Management And Results
+
+- [x] Add an authenticated team list at `/teams/`, following the player-management interface.
+- [x] Show wins, draws, and losses against each team from the household team's perspective.
+- [x] Exclude future fixtures from team statistics.
+- [x] Allow team names to be edited inline.
+- [x] Allow teams to be deleted only when they have no matches.
+- [x] Link team names to team management for authenticated users where the existing interface permits.

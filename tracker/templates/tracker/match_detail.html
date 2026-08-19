@@ -7,9 +7,21 @@
     <div>
       <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
       {% if is_future_fixture %}
-        <h1>{{ home_name }} v {{ away_name }}</h1>
+        <h1>
+          {% if match.is_home %}
+            {{ home_name }} v {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}
+          {% else %}
+            {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %} v {{ away_name }}
+          {% endif %}
+        </h1>
       {% else %}
-        <h1>{{ home_name }} {{ home_score }}–{{ away_score }} {{ away_name }}</h1>
+        <h1>
+          {% if match.is_home %}
+            {{ home_name }} {{ home_score }}–{{ away_score }} {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}
+          {% else %}
+            {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %} {{ home_score }}–{{ away_score }} {{ away_name }}
+          {% endif %}
+        </h1>
       {% endif %}
     </div>
     {% if can_modify and not is_future_fixture %}<a role="button" href="{% url 'match-score' match.pk %}">Enter score</a>{% endif %}

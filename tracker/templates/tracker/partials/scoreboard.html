@@ -2,7 +2,9 @@
   <div class="scoreboard{% if recent_events %} has-feed{% endif %}">
     <div class="side-panel">
       <span class="venue">Home</span>
-      <h2>{{ home_name }}</h2>
+      <h2>
+        {% if not match.is_home %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %}
+      </h2>
       <strong class="score">{{ home_score }}</strong>
       <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
         {% csrf_token %}
@@ -27,7 +29,9 @@
     <span class="score-divider">:</span>
     <div class="side-panel">
       <span class="venue">Away</span>
-      <h2>{{ away_name }}</h2>
+      <h2>
+        {% if match.is_home %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}
+      </h2>
       <strong class="score">{{ away_score }}</strong>
       <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
         {% csrf_token %}

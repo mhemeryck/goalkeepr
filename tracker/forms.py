@@ -60,3 +60,12 @@ class PlayerForm(forms.ModelForm[tracker.models.Player]):
 
     def clean_name(self) -> str:
         return str(self.cleaned_data["name"]).strip()
+
+
+class TeamForm(forms.ModelForm[tracker.models.Team]):
+    class Meta:
+        model = tracker.models.Team
+        fields = ["name"]
+
+    def clean_name(self) -> str:
+        return str(self.cleaned_data["name"]).strip()
