@@ -15,6 +15,19 @@ import tracker.forms
 import tracker.models
 
 
+class TeamResult(typing.TypedDict):
+    team: tracker.models.Team
+    wins: int
+    draws: int
+    losses: int
+    match_count: int
+
+
+class ScoredMatch(typing.Protocol):
+    home_score_value: int
+    away_score_value: int
+
+
 async def _form_is_valid(form: forms.BaseForm) -> bool:
     return await sync_to_async(form.is_valid)()
 
@@ -78,6 +91,47 @@ async def _players_with_goal_counts() -> list[tracker.models.Player]:
             goal_count=Count("score_events")
         ).order_by("name", "pk")
     ]
+
+
+async def _teams_with_results() -> list[TeamResult]:
+    results = {
+        team.pk: TeamResult(
+            team=team,
+            wins=0,
+            draws=0,
+            losses=0,
+            match_count=0,
+        )
+        async for team in tracker.models.Team.objects.all()
+    }
+    matches = [
+        match async for match in _scored_matches(tracker.models.Match.objects.all())
+    ]
+    today = timezone.localdate()
+    for match in matches:
+        result = results[match.opponent_id]
+        result["match_count"] += 1
+        if match.match_date > today:
+            continue
+        scored_match = typing.cast(ScoredMatch, match)
+        home_score = scored_match.home_score_value
+        away_score = scored_match.away_score_value
+        household_score = home_score if match.is_home else away_score
+        opponent_score = away_score if match.is_home else home_score
+        if household_score > opponent_score:
+            result["wins"] += 1
+        elif household_score < opponent_score:
+            result["losses"] += 1
+        else:
+            result["draws"] += 1
+    return list(results.values())
+
+
+async def _team_result(pk: int) -> TeamResult | None:
+    return next(
+        (result for result in await _teams_with_results() if result["team"].pk == pk),
+        None,
+    )
 
 
 async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
@@ -231,6 +285,65 @@ async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
     request.user = await request.auser()
     await player.adelete()
     return redirect("player-list")
+
+
+@login_required
+async def team_list(request: HttpRequest) -> HttpResponse:
+    request.user = await request.auser()
+    return render(
+        request,
+        "tracker/team_list.html",
+        {"teams": await _teams_with_results()},
+    )
+
+
+@login_required
+async def team_edit(request: HttpRequest, pk: int) -> HttpResponse:
+    result = await _team_result(pk)
+    if result is None:
+        return await _not_found_response(request)
+    request.user = await request.auser()
+    team = result["team"]
+    form = tracker.forms.TeamForm(request.POST or None, instance=team)
+    if request.method == "POST" and await _form_is_valid(form):
+        await sync_to_async(form.save)()
+        if request.headers.get("HX-Request") == "true":
+            result = await _team_result(pk)
+            return render(
+                request,
+                "tracker/partials/team_row.html",
+                {"result": result},
+            )
+        return redirect("team-list")
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "tracker/partials/team_edit_row.html",
+            {"result": result, "form": form},
+        )
+    return render(
+        request,
+        "tracker/team_list.html",
+        {
+            "teams": await _teams_with_results(),
+            "edit_form": form,
+            "editing_team_id": team.pk,
+        },
+        status=400 if form.is_bound else 200,
+    )
+
+
+@require_POST
+@login_required
+async def team_delete(request: HttpRequest, pk: int) -> HttpResponse:
+    try:
+        team = await tracker.models.Team.objects.aget(pk=pk)
+    except tracker.models.Team.DoesNotExist:
+        return await _not_found_response(request)
+    request.user = await request.auser()
+    if not await team.matches.aexists():
+        await team.adelete()
+    return redirect("team-list")
 
 
 @login_required

@@ -8,6 +8,9 @@ from django.utils.translation import gettext_lazy
 
 
 class Team(models.Model):
+    if typing.TYPE_CHECKING:
+        matches: models.Manager[Match]
+
     name = models.CharField(max_length=100)
 
     class Meta:
@@ -41,6 +44,7 @@ class Player(models.Model):
 
 class Match(models.Model):
     if typing.TYPE_CHECKING:
+        opponent_id: int
         score_events: models.Manager[ScoreEvent]
 
     opponent = models.ForeignKey(

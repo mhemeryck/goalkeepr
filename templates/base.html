@@ -18,6 +18,7 @@
           <div class="nav-actions">
             <a href="{% url 'match-create' %}">Add match</a>
             <a href="{% url 'player-list' %}">Players</a>
+            <a href="{% url 'team-list' %}">Teams</a>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
               <button class="link-button" type="submit">Log out</button>

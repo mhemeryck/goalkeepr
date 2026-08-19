@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Teams | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Opposition</p>
+      <h1>Teams</h1>
+    </div>
+  </div>
+  {% if teams %}
+    <div class="team-list">
+      {% for result in teams %}
+        {% if editing_team_id == result.team.pk %}
+          {% include "tracker/partials/team_edit_row.html" with form=edit_form %}
+        {% else %}
+          {% include "tracker/partials/team_row.html" %}
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <article class="empty-state">
+      <h2>No teams yet</h2>
+      <p>Teams are added automatically when you add a match.</p>
+    </article>
+  {% endif %}
+{% endblock %}

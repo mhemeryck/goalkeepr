@@ -653,6 +653,131 @@ def test_deleting_player_keeps_goal_without_scorer(
 
 
 @pytest.mark.django_db
+def test_team_management_requires_login(client: Client) -> None:
+    response = client.get(reverse("team-list"))
+
+    assert response.status_code == 302
+    assert response["Location"].startswith(reverse("login"))
+
+
+@pytest.mark.django_db
+def test_team_list_shows_results_and_excludes_future_fixtures(
+    user: User,
+    client: Client,
+) -> None:
+    team = tracker.models.Team.objects.create(name="United")
+    win = make_match(opponent_name=team.name, is_home=True)
+    loss = make_match(
+        opponent_name=team.name,
+        is_home=False,
+        match_date=date(2026, 8, 17),
+    )
+    make_match(
+        opponent_name=team.name,
+        is_home=True,
+        match_date=date(2026, 8, 18),
+    )
+    future = make_match(
+        opponent_name=team.name,
+        is_home=True,
+        match_date=timezone.localdate() + timedelta(days=1),
+    )
+    tracker.models.ScoreEvent.objects.bulk_create(
+        [
+            tracker.models.ScoreEvent(
+                match=win,
+                side=tracker.models.ScoreEvent.Side.HOME,
+            ),
+            tracker.models.ScoreEvent(
+                match=loss,
+                side=tracker.models.ScoreEvent.Side.HOME,
+            ),
+            tracker.models.ScoreEvent(
+                match=future,
+                side=tracker.models.ScoreEvent.Side.HOME,
+            ),
+        ]
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("team-list"))
+
+    assert response.status_code == 200
+    assert response.context["teams"][0]["wins"] == 1
+    assert response.context["teams"][0]["draws"] == 1
+    assert response.context["teams"][0]["losses"] == 1
+    assert "1 win" in response.text
+    assert "1 draw" in response.text
+    assert "1 loss" in response.text
+    assert f'hx-get="{reverse("team-edit", args=[team.pk])}"' in response.text
+    assert f'aria-label="Delete {team.name}"' in response.text
+    assert 'title="Delete matches first"' in response.text
+
+
+@pytest.mark.django_db
+def test_team_can_be_edited_inline(user: User, client: Client) -> None:
+    team = tracker.models.Team.objects.create(name="Untied")
+    client.force_login(user)
+
+    edit_response = client.get(
+        reverse("team-edit", args=[team.pk]),
+        HTTP_HX_REQUEST="true",
+    )
+    save_response = client.post(
+        reverse("team-edit", args=[team.pk]),
+        {"name": "United"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    team.refresh_from_db()
+    assert edit_response.status_code == 200
+    assert edit_response.templates[0].name == "tracker/partials/team_edit_row.html"
+    assert 'value="Untied"' in edit_response.text
+    assert save_response.status_code == 200
+    assert save_response.templates[0].name == "tracker/partials/team_row.html"
+    assert team.name == "United"
+
+
+@pytest.mark.django_db
+def test_team_can_only_be_deleted_without_matches(user: User, client: Client) -> None:
+    unused_team = tracker.models.Team.objects.create(name="Unused")
+    used_team = tracker.models.Team.objects.create(name="Used")
+    make_match(opponent_name=used_team.name)
+    client.force_login(user)
+
+    list_response = client.get(reverse("team-list"))
+    unused_response = client.post(reverse("team-delete", args=[unused_team.pk]))
+    used_response = client.post(reverse("team-delete", args=[used_team.pk]))
+
+    assert f'aria-label="Delete {unused_team.name}"' in list_response.text
+    assert f'aria-label="Delete {used_team.name}"' in list_response.text
+    assert 'title="Delete matches first"' in list_response.text
+    assert unused_response.status_code == 302
+    assert used_response.status_code == 302
+    assert not tracker.models.Team.objects.filter(pk=unused_team.pk).exists()
+    assert tracker.models.Team.objects.filter(pk=used_team.pk).exists()
+
+
+@pytest.mark.django_db
+def test_authenticated_match_pages_link_to_team_management(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    client.force_login(user)
+    team_url = (
+        f"{reverse('team-edit', args=[match.opponent_id])}#team-{match.opponent_id}"
+    )
+
+    detail_response = client.get(reverse("match-detail", args=[match.pk]))
+    score_response = client.get(reverse("match-score", args=[match.pk]))
+
+    assert team_url in detail_response.text
+    assert team_url in score_response.text
+    assert reverse("team-list") in detail_response.text
+
+
+@pytest.mark.django_db
 def test_future_fixture_hides_score_and_blocks_score_writes(
     user: User,
     client: Client,
@@ -672,7 +797,7 @@ def test_future_fixture_hides_score_and_blocks_score_writes(
 
     assert "Fixture" in list_response.text
     assert "Score 0 to 0" not in list_response.text
-    assert " v United" in detail_response.text
+    assert "United" in detail_response.text
     assert reverse("match-score", args=[match.pk]) not in detail_response.text
     assert score_response.status_code == 302
     assert score_response["Location"] == reverse("match-detail", args=[match.pk])
