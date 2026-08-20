@@ -230,3 +230,11 @@
 - [x] Redirect match creation, editing, and score-entry flows to the canonical match-detail page.
 - [x] Keep match deletion as a separate confirmation flow.
 - [x] Add focused tests for public visibility, authenticated controls, inline editing, fixtures, and complete newest-first goal history.
+
+## Iteration 11: Live Match Detail
+
+- [x] Stop refreshing the match list automatically.
+- [x] Refresh the complete match-detail content every five seconds for anonymous read-only users.
+- [x] Keep authenticated match-detail pages stable while users score or edit.
+- [x] Keep the detail refresh endpoint public and read-only.
+- [x] Remove the obsolete match-list refresh endpoint.

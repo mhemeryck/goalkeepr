@@ -261,15 +261,6 @@ async def match_list(request: HttpRequest) -> HttpResponse:
     return render(request, "tracker/match_list.html", await _match_list_context())
 
 
-async def match_list_fragment(request: HttpRequest) -> HttpResponse:
-    request.user = await request.auser()
-    return render(
-        request,
-        "tracker/partials/match_list.html",
-        await _match_list_context(),
-    )
-
-
 @login_required
 async def player_list(request: HttpRequest) -> HttpResponse:
     request.user = await request.auser()
@@ -432,6 +423,26 @@ async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
         edit_form=edit_form,
     )
     return render(request, "tracker/match_detail.html", context)
+
+
+async def match_detail_fragment(request: HttpRequest, pk: int) -> HttpResponse:
+    try:
+        match = await tracker.models.Match.objects.select_related("opponent").aget(
+            pk=pk
+        )
+    except tracker.models.Match.DoesNotExist:
+        if request.headers.get("HX-Request") == "true":
+            response = HttpResponse()
+            response["HX-Redirect"] = reverse("match-list")
+            return response
+        return await _not_found_response(request)
+    user = await request.auser()
+    request.user = user
+    return render(
+        request,
+        "tracker/partials/match_detail_content.html",
+        await _match_detail_context(match, can_modify=user.is_authenticated),
+    )
 
 
 @login_required

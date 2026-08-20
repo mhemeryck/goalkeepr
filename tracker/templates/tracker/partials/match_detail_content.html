@@ -1,0 +1,5 @@
+<div id="match-detail-content"{% if not can_modify %} hx-get="{% url 'match-detail-fragment' match.pk %}" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
+  {% include "tracker/partials/match_heading.html" %}
+  {% include "tracker/partials/scoreboard.html" %}
+  {% include "tracker/partials/match_details.html" %}
+</div>

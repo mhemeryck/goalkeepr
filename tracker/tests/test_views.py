@@ -93,7 +93,7 @@ def test_match_list_scores_are_derived_from_events(client: Client, user: User) -
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("authenticated", [False, True])
-def test_match_list_polls_for_updates(
+def test_match_list_does_not_poll_for_updates(
     client: Client,
     user: User,
     authenticated: bool,
@@ -103,28 +103,67 @@ def test_match_list_polls_for_updates(
 
     response = client.get(reverse("match-list"))
 
-    assert f'hx-get="{reverse("match-list-fragment")}"' in response.text
-    assert 'hx-trigger="every 5s"' in response.text
+    assert "hx-get" not in response.text
+    assert 'hx-trigger="every 5s"' not in response.text
 
 
 @pytest.mark.django_db
-def test_match_list_fragment_is_public_and_returns_updated_scores(
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_only_read_only_match_detail_polls_for_updates(
+    client: Client,
+    user: User,
+    authenticated: bool,
+) -> None:
+    match = make_match()
+    if authenticated:
+        client.force_login(user)
+
+    response = client.get(reverse("match-detail", args=[match.pk]))
+    fragment_url = reverse("match-detail-fragment", args=[match.pk])
+
+    assert response.status_code == 200
+    if authenticated:
+        assert f'hx-get="{fragment_url}"' not in response.text
+        assert 'hx-trigger="every 5s"' not in response.text
+    else:
+        assert f'hx-get="{fragment_url}"' in response.text
+        assert 'hx-trigger="every 5s"' in response.text
+
+
+@pytest.mark.django_db
+def test_match_detail_fragment_is_public_and_returns_updated_score(
     client: Client,
 ) -> None:
     match = make_match()
 
-    initial_response = client.get(reverse("match-list-fragment"))
+    initial_response = client.get(reverse("match-detail-fragment", args=[match.pk]))
     tracker.models.ScoreEvent.objects.create(
         match=match,
         side=tracker.models.ScoreEvent.Side.HOME,
     )
-    updated_response = client.get(reverse("match-list-fragment"))
+    updated_response = client.get(reverse("match-detail-fragment", args=[match.pk]))
 
     assert initial_response.status_code == 200
-    assert 'aria-label="Score 0 to 0"' in initial_response.text
-    assert f'id="match-link-{match.pk}"' in initial_response.text
+    assert initial_response.context["home_score"] == 0
+    assert 'id="match-detail-content"' in initial_response.text
     assert updated_response.status_code == 200
-    assert 'aria-label="Score 1 to 0"' in updated_response.text
+    assert updated_response.context["home_score"] == 1
+    assert "Goal history" in updated_response.text
+    assert 'hx-trigger="every 5s"' in updated_response.text
+
+
+@pytest.mark.django_db
+def test_deleted_match_poll_redirects_to_match_list(client: Client) -> None:
+    match = make_match()
+    fragment_url = reverse("match-detail-fragment", args=[match.pk])
+    match.delete()
+
+    polling_response = client.get(fragment_url, HTTP_HX_REQUEST="true")
+    ordinary_response = client.get(fragment_url)
+
+    assert polling_response.status_code == 200
+    assert polling_response["HX-Redirect"] == reverse("match-list")
+    assert ordinary_response.status_code == 404
 
 
 @pytest.mark.django_db

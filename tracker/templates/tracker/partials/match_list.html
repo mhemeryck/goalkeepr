@@ -1,7 +1,4 @@
-<div id="match-list"
-     hx-get="{% url 'match-list-fragment' %}"
-     hx-trigger="every 5s"
-     hx-swap="outerHTML">
+<div id="match-list">
   {% if matches %}
     <div class="match-list">
       {% for match in matches %}
