@@ -22,19 +22,29 @@ The PostgreSQL data is retained in the `postgres-data` Docker volume.
 The household team defaults to `K.F.C. Sparta Kolmont`.
 Set `TEAM_NAME` before starting Compose to override it.
 
-## Development
+## Container Development
 
-Enter the reproducible development environment:
+Start the application and PostgreSQL with Docker Compose:
 
 ```console
-devenv shell
+docker compose up --build
 ```
 
-Apply migrations and start the ASGI development server:
+The Compose setup is useful for verifying the application container together
+with its external PostgreSQL dependency.
+
+## Devenv Development
+
+Start PostgreSQL, apply migrations, and launch the ASGI development server:
 
 ```console
-migrate
-server
+devenv up -d server
+```
+
+Stop the PostgreSQL service when finished:
+
+```console
+devenv down
 ```
 
 Run the quality checks:
@@ -45,7 +55,15 @@ lint
 typecheck
 ```
 
-The development server uses SQLite unless `POSTGRES_HOST` is set.
+The devenv development server uses the devenv-managed PostgreSQL service.
+PostgreSQL data is retained in devenv's state directory.
+
+Run Django management commands through the database-configured wrapper:
+
+```console
+devenv shell -- manage createsuperuser
+devenv shell -- manage shell
+```
 
 ## License
 
