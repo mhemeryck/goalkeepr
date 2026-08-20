@@ -6,10 +6,11 @@ let
     POSTGRES_PASSWORD = "goalkeepr";
     POSTGRES_USER = "goalkeepr";
   };
-  postgresEnvCommand = lib.concatStringsSep " " (lib.mapAttrsToList (
-    name: value: "${name}=${lib.escapeShellArg value}"
-  ) postgresEnv);
-in {
+  postgresEnvCommand = lib.concatStringsSep " " (
+    lib.mapAttrsToList (name: value: "${name}=${lib.escapeShellArg value}") postgresEnv
+  );
+in
+{
   languages.python = {
     enable = true;
     package = pkgs.python314;
@@ -27,14 +28,16 @@ in {
   services.postgres = {
     enable = true;
     package = pkgs.postgresql_18;
-    listen_addresses = "127.0.0.1";
+    listen_addresses = postgresEnv.POSTGRES_HOST;
     port = 5432;
     settings.shared_memory_type = "mmap";
-    initialDatabases = [{
-      name = postgresEnv.POSTGRES_DB;
-      user = postgresEnv.POSTGRES_USER;
-      pass = postgresEnv.POSTGRES_PASSWORD;
-    }];
+    initialDatabases = [
+      {
+        name = postgresEnv.POSTGRES_DB;
+        user = postgresEnv.POSTGRES_USER;
+        pass = postgresEnv.POSTGRES_PASSWORD;
+      }
+    ];
   };
 
   scripts = {
