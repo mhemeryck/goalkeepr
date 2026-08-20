@@ -1005,6 +1005,25 @@ def test_future_fixture_hides_score_and_blocks_score_writes(
 
 
 @pytest.mark.django_db
+def test_future_fixture_hides_existing_goal_history(client: Client) -> None:
+    match = make_match(match_date=timezone.localdate() + timedelta(days=1))
+    player = tracker.models.Player.objects.create(name="Hidden scorer")
+    tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+        scorer=player,
+    )
+
+    response = client.get(reverse("match-detail", args=[match.pk]))
+
+    assert response.status_code == 200
+    assert "Goal history" not in response.text
+    assert player.name not in response.text
+    assert 'class="scoreboard scoreboard-fixture"' in response.text
+    assert "has-feed" not in response.text
+
+
+@pytest.mark.django_db
 def test_match_on_today_is_scoreable(user: User, client: Client) -> None:
     match = make_match(match_date=timezone.localdate())
     client.force_login(user)

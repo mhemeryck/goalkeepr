@@ -1,5 +1,5 @@
 <section id="scoreboard" class="scoreboard-shell" aria-live="polite"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
-  <div class="scoreboard has-feed{% if is_future_fixture %} scoreboard-fixture{% endif %}">
+  <div class="scoreboard{% if not is_future_fixture %} has-feed{% endif %}{% if is_future_fixture %} scoreboard-fixture{% endif %}">
     <div class="side-panel">
       <span class="venue">Home</span>
       <h2>
@@ -55,30 +55,32 @@
       <p class="fixture-notice">Score entry becomes available on {{ match.match_date|date:"j F Y" }}.</p>
     {% endif %}
   </div>
-  <section class="goal-history">
-    <div class="feed-heading">
-      <span class="feed-dot"></span>
-      <h2>Goal history</h2>
-    </div>
-    {% if events %}
-      <ol>
-        {% for event in events %}
-          <li{% if forloop.first %} class="latest-goal"{% endif %}>
-            <span class="goal-marker" aria-hidden="true"></span>
-            <span class="goal-summary">
-              <small>{% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}</small>
-              {% if event.scorer %}
-                {% if can_modify %}<a href="{% url 'player-list' %}#player-{{ event.scorer_id }}">by {{ event.scorer.name }}</a>{% else %}<strong>by {{ event.scorer.name }}</strong>{% endif %}
-              {% endif %}
-            </span>
-            <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
-          </li>
-        {% endfor %}
-      </ol>
-    {% else %}
-      <p class="empty-goals">No goals recorded yet.</p>
-    {% endif %}
-  </section>
+  {% if not is_future_fixture %}
+    <section class="goal-history">
+      <div class="feed-heading">
+        <span class="feed-dot"></span>
+        <h2>Goal history</h2>
+      </div>
+      {% if events %}
+        <ol>
+          {% for event in events %}
+            <li{% if forloop.first %} class="latest-goal"{% endif %}>
+              <span class="goal-marker" aria-hidden="true"></span>
+              <span class="goal-summary">
+                <small>{% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}</small>
+                {% if event.scorer %}
+                  {% if can_modify %}<a href="{% url 'player-list' %}#player-{{ event.scorer_id }}">by {{ event.scorer.name }}</a>{% else %}<strong>by {{ event.scorer.name }}</strong>{% endif %}
+                {% endif %}
+              </span>
+              <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="empty-goals">No goals recorded yet.</p>
+      {% endif %}
+    </section>
+  {% endif %}
   {% if can_modify and not is_future_fixture %}
     <datalist id="household-players">
       {% for name in player_names %}<option value="{{ name }}"></option>{% endfor %}
