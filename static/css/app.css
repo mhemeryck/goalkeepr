@@ -75,8 +75,7 @@ body {
   text-decoration: underline;
 }
 
-.page-heading,
-.score-heading {
+.page-heading {
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -84,8 +83,7 @@ body {
   margin-bottom: 1.5rem;
 }
 
-.page-heading h1,
-.score-heading h1 {
+.page-heading h1 {
   margin-bottom: 0;
 }
 
@@ -358,11 +356,18 @@ body {
   border: 1px solid transparent;
 }
 
-.fixture-notice {
-  margin-top: 1.5rem;
+.scoreboard-fixture .score-divider {
+  margin-top: 2.6rem;
 }
 
-.recent-goals {
+.scoreboard .fixture-notice {
+  grid-column: 1 / -1;
+  margin: 0.5rem 0 0;
+  color: rgb(255 255 255 / 72%);
+  text-align: center;
+}
+
+.goal-history {
   padding: 1rem clamp(1rem, 4vw, 2.5rem) 1.25rem;
   color: white;
   background: var(--pitch-light);
@@ -393,13 +398,13 @@ body {
   box-shadow: 0 0 0 0.25rem rgb(217 249 157 / 15%);
 }
 
-.recent-goals ol {
+.goal-history ol {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.recent-goals li {
+.goal-history li {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
@@ -409,11 +414,11 @@ body {
   border-radius: 0.25rem;
 }
 
-.recent-goals li:last-child {
+.goal-history li:last-child {
   border-bottom: 0;
 }
 
-.recent-goals .latest-goal {
+.goal-history .latest-goal {
   background: rgb(217 249 157 / 10%);
 }
 
@@ -448,17 +453,15 @@ body {
   font-weight: 800;
 }
 
-.recent-goals time {
+.goal-history time {
   color: rgb(255 255 255 / 65%);
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
 
-.event-scorer {
-  display: block;
-  color: var(--muted);
-  font-size: 0.8rem;
-  font-weight: 400;
+.empty-goals {
+  margin: 0;
+  color: rgb(255 255 255 / 65%);
 }
 
 .player-list,
@@ -555,35 +558,71 @@ body {
   border: 0;
 }
 
-.match-meta dl {
+.match-details {
+  max-width: 42rem;
+  margin-top: 2rem;
+  padding: clamp(1rem, 4vw, 1.5rem);
+  background: white;
+  border-top: 0.3rem solid var(--pitch-light);
+  border-radius: 0.3rem;
+  box-shadow: 0 0.5rem 2rem rgb(16 42 35 / 8%);
+}
+
+.match-details header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.match-details h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.match-details dl {
   margin: 0;
 }
 
-.match-meta dl div {
+.match-details dl div {
   display: grid;
   grid-template-columns: 6rem 1fr;
-  padding: 0.5rem 0;
+  padding: 0.65rem 0;
   border-bottom: 1px solid #ddd;
 }
 
-.match-meta dt {
+.match-details dl div:last-child {
+  border-bottom: 0;
+}
+
+.match-details dt {
   color: var(--muted);
 }
 
-.match-meta dd {
+.match-details dd {
   margin: 0;
 }
 
-.event-history {
-  max-width: 40rem;
-  margin-top: 2rem;
+.empty-value {
+  color: var(--muted);
 }
 
-.event-history li {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.6rem 0;
-  border-bottom: 1px solid #d8d5cd;
+.match-details-editing form {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.match-details-editing input,
+.match-details-editing textarea,
+.match-details-editing fieldset,
+.match-details-editing button {
+  margin-bottom: 0.5rem;
+}
+
+.match-details-editing button {
+  width: fit-content;
 }
 
 @media (max-width: 35rem) {
@@ -624,6 +663,10 @@ body {
   .inline-player-form,
   .inline-team-form {
     grid-template-columns: 1fr;
+  }
+
+  .match-details dl div {
+    grid-template-columns: 5rem 1fr;
   }
 
 }

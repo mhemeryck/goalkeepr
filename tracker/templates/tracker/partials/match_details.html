@@ -1,0 +1,19 @@
+<section id="match-details" class="match-details">
+  <header>
+    <h2>Match details</h2>
+    {% if can_modify %}
+      <a href="{% url 'match-detail' match.pk %}?edit=1" hx-get="{% url 'match-edit' match.pk %}" hx-target="#match-details" hx-swap="outerHTML">Edit</a>
+    {% endif %}
+  </header>
+  <dl>
+    <div>
+      <dt>Opponent</dt>
+      <dd>
+        {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ match.opponent.name }}</a>{% else %}{{ match.opponent.name }}{% endif %}
+      </dd>
+    </div>
+    <div><dt>Venue</dt><dd>{% if match.is_home %}Home{% else %}Away{% endif %}</dd></div>
+    <div><dt>Date</dt><dd>{{ match.match_date|date:"j F Y" }}</dd></div>
+    <div><dt>Notes</dt><dd>{% if match.notes %}{{ match.notes|linebreaksbr }}{% else %}<span class="empty-value">None</span>{% endif %}</dd></div>
+  </dl>
+</section>
