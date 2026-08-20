@@ -431,6 +431,10 @@ async def match_detail_fragment(request: HttpRequest, pk: int) -> HttpResponse:
             pk=pk
         )
     except tracker.models.Match.DoesNotExist:
+        if request.headers.get("HX-Request") == "true":
+            response = HttpResponse()
+            response["HX-Redirect"] = reverse("match-list")
+            return response
         return await _not_found_response(request)
     user = await request.auser()
     request.user = user

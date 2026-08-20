@@ -153,6 +153,20 @@ def test_match_detail_fragment_is_public_and_returns_updated_score(
 
 
 @pytest.mark.django_db
+def test_deleted_match_poll_redirects_to_match_list(client: Client) -> None:
+    match = make_match()
+    fragment_url = reverse("match-detail-fragment", args=[match.pk])
+    match.delete()
+
+    polling_response = client.get(fragment_url, HTTP_HX_REQUEST="true")
+    ordinary_response = client.get(fragment_url)
+
+    assert polling_response.status_code == 200
+    assert polling_response["HX-Redirect"] == reverse("match-list")
+    assert ordinary_response.status_code == 404
+
+
+@pytest.mark.django_db
 def test_match_detail_is_public_and_read_only(client: Client, user: User) -> None:
     match = make_match()
 
