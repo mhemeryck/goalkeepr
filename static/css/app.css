@@ -559,70 +559,68 @@ body {
 }
 
 .match-details {
-  max-width: 42rem;
   margin-top: 2rem;
-  padding: clamp(1rem, 4vw, 1.5rem);
-  background: white;
-  border-top: 0.3rem solid var(--pitch-light);
-  border-radius: 0.3rem;
-  box-shadow: 0 0.5rem 2rem rgb(16 42 35 / 8%);
-}
-
-.match-details header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
 }
 
 .match-details h2 {
-  margin: 0;
+  margin-bottom: 0.75rem;
   font-size: 1.2rem;
 }
 
-.match-details dl {
-  margin: 0;
+.match-detail-list {
+  border-top: 1px solid #d8d5cd;
 }
 
-.match-details dl div {
+.match-detail-row {
   display: grid;
-  grid-template-columns: 6rem 1fr;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid #ddd;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+  margin: 0;
+  padding: 0.85rem 0.75rem;
+  color: var(--ink);
+  border-bottom: 1px solid #d8d5cd;
+  text-decoration: none;
 }
 
-.match-details dl div:last-child {
-  border-bottom: 0;
+a.match-detail-row:hover {
+  background: rgb(27 73 61 / 5%);
 }
 
-.match-details dt {
+.match-detail-label {
   color: var(--muted);
 }
 
-.match-details dd {
-  margin: 0;
+.match-detail-value {
+  min-width: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+a.match-detail-row:hover .match-detail-value {
+  text-decoration: underline;
 }
 
 .empty-value {
   color: var(--muted);
 }
 
-.match-details-editing form {
+.match-detail-control {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
   gap: 0.5rem;
+}
+
+.match-detail-control input,
+.match-detail-control textarea,
+.match-detail-control button {
   margin: 0;
 }
 
-.match-details-editing input,
-.match-details-editing textarea,
-.match-details-editing fieldset,
-.match-details-editing button {
-  margin-bottom: 0.5rem;
-}
-
-.match-details-editing button {
-  width: fit-content;
+.match-detail-control small,
+.match-detail-control .errorlist {
+  grid-column: 1 / -1;
 }
 
 @media (max-width: 35rem) {
@@ -655,6 +653,14 @@ body {
     margin-inline: -0.5rem;
   }
 
+  .match-details {
+    margin-inline: -0.5rem;
+  }
+
+  .match-details h2 {
+    padding-inline: 0.25rem;
+  }
+
   .player-list article,
   .team-list article {
     align-items: start;
@@ -665,8 +671,14 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .match-details dl div {
-    grid-template-columns: 5rem 1fr;
+  .match-detail-row {
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-inline: 0.25rem;
+  }
+
+  .match-detail-control {
+    grid-template-columns: 1fr;
   }
 
 }

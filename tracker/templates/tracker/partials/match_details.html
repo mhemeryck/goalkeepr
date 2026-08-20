@@ -1,19 +1,25 @@
 <section id="match-details" class="match-details">
-  <header>
-    <h2>Match details</h2>
-    {% if can_modify %}
-      <a href="{% url 'match-detail' match.pk %}?edit=1" hx-get="{% url 'match-edit' match.pk %}" hx-target="#match-details" hx-swap="outerHTML">Edit</a>
+  <h2>Match details</h2>
+  <div class="match-detail-list">
+    {% if editing_field == "opponent" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="opponent" field_label="Opponent" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="opponent" field_label="Opponent" %}
     {% endif %}
-  </header>
-  <dl>
-    <div>
-      <dt>Opponent</dt>
-      <dd>
-        {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ match.opponent.name }}</a>{% else %}{{ match.opponent.name }}{% endif %}
-      </dd>
-    </div>
-    <div><dt>Venue</dt><dd>{% if match.is_home %}Home{% else %}Away{% endif %}</dd></div>
-    <div><dt>Date</dt><dd>{{ match.match_date|date:"j F Y" }}</dd></div>
-    <div><dt>Notes</dt><dd>{% if match.notes %}{{ match.notes|linebreaksbr }}{% else %}<span class="empty-value">None</span>{% endif %}</dd></div>
-  </dl>
+    {% if editing_field == "venue" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="venue" field_label="Venue" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="venue" field_label="Venue" %}
+    {% endif %}
+    {% if editing_field == "date" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="date" field_label="Date" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="date" field_label="Date" %}
+    {% endif %}
+    {% if editing_field == "notes" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="notes" field_label="Notes" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="notes" field_label="Notes" %}
+    {% endif %}
+  </div>
 </section>

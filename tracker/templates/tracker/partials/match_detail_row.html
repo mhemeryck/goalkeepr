@@ -1,0 +1,11 @@
+{% if can_modify %}
+  <a id="match-detail-{{ field_name }}" class="match-detail-row" href="{% url 'match-detail' match.pk %}?edit={{ field_name }}" hx-get="{% url 'match-field-edit' match.pk field_name %}" hx-target="#match-detail-{{ field_name }}" hx-swap="outerHTML">
+    <span class="match-detail-label">{{ field_label }}</span>
+    {% include "tracker/partials/match_detail_value.html" %}
+  </a>
+{% else %}
+  <div id="match-detail-{{ field_name }}" class="match-detail-row">
+    <span class="match-detail-label">{{ field_label }}</span>
+    {% include "tracker/partials/match_detail_value.html" %}
+  </div>
+{% endif %}

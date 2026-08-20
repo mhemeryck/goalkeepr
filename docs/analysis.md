@@ -218,9 +218,9 @@
 - [x] Keep the pitch-style scoreboard as the visual focus for authenticated and anonymous users.
 - [x] Hide scorer inputs, goal controls, undo controls, and management actions from anonymous users.
 - [x] Keep score entry unavailable for future fixtures while presenting them in the same visual frame.
-- [x] Show opponent, venue, date, and notes in a match-details block below the scoreboard.
-- [x] Allow authenticated users to edit the complete match-details block in place with HTMX.
-- [x] Keep match-form validation errors in the inline editing block.
+- [x] Show opponent, venue, date, and notes in a full-width unboxed list below the scoreboard.
+- [x] Allow authenticated users to edit each match-detail row independently with HTMX.
+- [x] Keep match-form validation errors in the edited row.
 - [x] Preserve ordinary non-HTMX form behavior.
 - [x] Replace the five-goal feed and separate event history with one complete goal history attached to the scoreboard.
 - [x] Order the complete goal history newest first and visually highlight the latest goal.

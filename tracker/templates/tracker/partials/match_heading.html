@@ -1,0 +1,7 @@
+<div id="match-heading" class="page-heading match-heading"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
+  <div>
+    <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
+    <h1>{{ home_name }} v {{ away_name }}</h1>
+  </div>
+  {% if can_modify %}<a class="danger-link" href="{% url 'match-delete' match.pk %}">Delete match</a>{% endif %}
+</div>

@@ -1,0 +1,13 @@
+<span class="match-detail-value">
+  {% if field_name == "opponent" %}
+    {{ match.opponent.name }}
+  {% elif field_name == "venue" %}
+    {% if match.is_home %}Home{% else %}Away{% endif %}
+  {% elif field_name == "date" %}
+    {{ match.match_date|date:"j F Y" }}
+  {% elif match.notes %}
+    {{ match.notes|linebreaksbr }}
+  {% else %}
+    <span class="empty-value">None</span>
+  {% endif %}
+</span>

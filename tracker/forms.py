@@ -34,13 +34,20 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
             "notes": forms.Textarea(attrs={"rows": 3}),
         }
 
-    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
+    def __init__(
+        self,
+        *args: typing.Any,
+        editable_field: str | None = None,
+        **kwargs: typing.Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.fields["notes"].required = False
         if not self.is_bound and self.instance.pk is None:
             self.fields["match_date"].initial = timezone.localdate()
         elif not self.is_bound and self.instance.pk is not None:
             self.fields["opponent_name"].initial = self.instance.opponent.name
+        if editable_field is not None:
+            self.fields = {editable_field: self.fields[editable_field]}
 
     def clean_opponent_name(self) -> str:
         return str(self.cleaned_data["opponent_name"]).strip()

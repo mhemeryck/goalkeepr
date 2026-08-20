@@ -332,7 +332,23 @@ def test_creating_future_match_redirects_to_fixture_detail(
 
 
 @pytest.mark.django_db
-def test_match_detail_can_open_inline_edit_form(
+def test_match_details_offer_independent_inline_edits(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    client.force_login(user)
+
+    response = client.get(reverse("match-detail", args=[match.pk]))
+
+    for field_name in ("opponent", "venue", "date", "notes"):
+        edit_url = reverse("match-field-edit", args=[match.pk, field_name])
+        assert f'id="match-detail-{field_name}"' in response.text
+        assert f'hx-get="{edit_url}"' in response.text
+
+
+@pytest.mark.django_db
+def test_match_detail_can_open_one_inline_edit_row(
     user: User,
     client: Client,
 ) -> None:
@@ -340,48 +356,77 @@ def test_match_detail_can_open_inline_edit_form(
     client.force_login(user)
 
     response = client.get(
-        reverse("match-edit", args=[match.pk]),
+        reverse("match-field-edit", args=[match.pk, "opponent"]),
         HTTP_HX_REQUEST="true",
     )
 
     assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/match_details_edit.html"
-    assert 'value="2026-08-16"' in response.text
+    assert response.templates[0].name == "tracker/partials/match_detail_edit_row.html"
+    assert 'id="match-detail-opponent"' in response.text
+    assert 'name="opponent_name"' in response.text
     assert 'value="United"' in response.text
+    assert 'name="match_date"' not in response.text
+    assert 'name="is_home"' not in response.text
+    assert 'name="notes"' not in response.text
 
 
 @pytest.mark.django_db
-def test_match_can_be_edited_inline(user: User, client: Client) -> None:
+def test_inline_match_field_edit_only_updates_selected_field(
+    user: User,
+    client: Client,
+) -> None:
     match = make_match()
+    match.notes = "Keep this note"
+    match.save(update_fields=["notes"])
     client.force_login(user)
 
     response = client.post(
-        reverse("match-edit", args=[match.pk]),
-        {
-            "opponent_name": "City",
-            "match_date": "2026-08-17",
-            "is_home": "False",
-            "notes": "Cup match",
-        },
+        reverse("match-field-edit", args=[match.pk, "opponent"]),
+        {"opponent_name": "City"},
         HTTP_HX_REQUEST="true",
     )
 
     match.refresh_from_db()
     assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/match_details_saved.html"
+    assert response.templates[0].name == "tracker/partials/match_detail_row_saved.html"
     assert match.opponent.name == "City"
-    assert match.match_date == date(2026, 8, 17)
-    assert match.is_home is False
-    assert match.notes == "Cup match"
-    assert "City" in response.text
-    assert "Cup match" in response.text
+    assert match.match_date == date(2026, 8, 16)
+    assert match.is_home is True
+    assert match.notes == "Keep this note"
+    assert 'id="match-detail-opponent"' in response.text
+    assert 'id="match-detail-venue"' not in response.text
     assert 'hx-swap-oob="outerHTML"' in response.text
-    assert response.context["home_name"] == "City"
-    assert response.context["away_name"] == settings.TEAM_NAME
 
 
 @pytest.mark.django_db
-def test_inline_match_edit_keeps_validation_errors_in_place(
+def test_inline_venue_edit_swaps_goal_sides_and_refreshes_scoreboard(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    event = tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-field-edit", args=[match.pk, "venue"]),
+        {"is_home": "False"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    match.refresh_from_db()
+    event.refresh_from_db()
+    assert match.is_home is False
+    assert event.side == tracker.models.ScoreEvent.Side.AWAY
+    assert response.context["home_name"] == "United"
+    assert response.context["away_name"] == settings.TEAM_NAME
+    assert 'hx-swap-oob="outerHTML"' in response.text
+
+
+@pytest.mark.django_db
+def test_inline_notes_edit_returns_only_the_updated_row(
     user: User,
     client: Client,
 ) -> None:
@@ -389,74 +434,65 @@ def test_inline_match_edit_keeps_validation_errors_in_place(
     client.force_login(user)
 
     response = client.post(
-        reverse("match-edit", args=[match.pk]),
-        {
-            "opponent_name": "",
-            "match_date": "invalid",
-            "is_home": "True",
-        },
+        reverse("match-field-edit", args=[match.pk, "notes"]),
+        {"notes": "Cup match"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    match.refresh_from_db()
+    assert match.notes == "Cup match"
+    assert 'id="match-detail-notes"' in response.text
+    assert 'id="scoreboard"' not in response.text
+    assert "hx-swap-oob" not in response.text
+
+
+@pytest.mark.django_db
+def test_inline_match_field_edit_keeps_validation_error_in_row(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-field-edit", args=[match.pk, "date"]),
+        {"match_date": "invalid"},
         HTTP_HX_REQUEST="true",
     )
 
     assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/match_details_edit.html"
-    assert "This field is required." in response.text
+    assert response.templates[0].name == "tracker/partials/match_detail_edit_row.html"
+    assert 'id="match-detail-date"' in response.text
     assert "Enter a valid date." in response.text
 
 
 @pytest.mark.django_db
-def test_non_htmx_match_edit_uses_canonical_detail_page(
+def test_non_htmx_match_field_edit_uses_canonical_detail_page(
     user: User,
     client: Client,
 ) -> None:
     match = make_match()
     client.force_login(user)
+    edit_url = reverse("match-field-edit", args=[match.pk, "date"])
 
-    edit_response = client.get(reverse("match-edit", args=[match.pk]))
+    edit_response = client.get(edit_url)
     form_response = client.get(
         reverse("match-detail", args=[match.pk]),
-        {"edit": "1"},
+        {"edit": "date"},
     )
+    invalid_response = client.post(edit_url, {"match_date": "invalid"})
 
     assert edit_response.status_code == 302
     assert edit_response["Location"] == (
-        f"{reverse('match-detail', args=[match.pk])}?edit=1"
+        f"{reverse('match-detail', args=[match.pk])}?edit=date"
     )
     assert form_response.status_code == 200
-    assert 'id="match-details"' in form_response.text
-    assert 'value="United"' in form_response.text
-
-
-@pytest.mark.django_db
-def test_non_htmx_match_edit_preserves_form_behavior(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-
-    invalid_response = client.post(
-        reverse("match-edit", args=[match.pk]),
-        {
-            "opponent_name": "",
-            "match_date": "invalid",
-            "is_home": "True",
-        },
-    )
-    valid_response = client.post(
-        reverse("match-edit", args=[match.pk]),
-        {
-            "opponent_name": "City",
-            "match_date": "2026-08-17",
-            "is_home": "True",
-        },
-    )
-
+    assert 'id="match-detail-date"' in form_response.text
+    assert 'name="match_date"' in form_response.text
+    assert 'name="opponent_name"' not in form_response.text
     assert invalid_response.status_code == 400
     assert 'id="scoreboard"' in invalid_response.text
     assert "Enter a valid date." in invalid_response.text
-    assert valid_response.status_code == 302
-    assert valid_response["Location"] == reverse("match-detail", args=[match.pk])
 
 
 @pytest.mark.django_db
@@ -464,6 +500,7 @@ def test_non_htmx_match_edit_preserves_form_behavior(
     ("route_name", "method", "args"),
     [
         ("match-edit", "get", ()),
+        ("match-field-edit", "get", ("opponent",)),
         ("match-delete", "post", ()),
         ("match-score", "get", ()),
         ("score-goal", "post", (tracker.models.ScoreEvent.Side.HOME,)),
@@ -491,6 +528,7 @@ def test_match_writes_require_login(
     ("route_name", "method", "args", "expected_status"),
     [
         ("match-edit", "get", (), 302),
+        ("match-field-edit", "get", ("opponent",), 302),
         ("match-delete", "post", (), 302),
         ("match-score", "get", (), 302),
         ("score-goal", "post", (tracker.models.ScoreEvent.Side.HOME,), 302),

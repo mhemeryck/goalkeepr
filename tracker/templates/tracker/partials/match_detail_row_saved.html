@@ -1,0 +1,5 @@
+{% include "tracker/partials/match_detail_row.html" %}
+{% if refresh_match %}
+  {% include "tracker/partials/match_heading.html" with oob=True %}
+  {% include "tracker/partials/scoreboard.html" with oob=True %}
+{% endif %}

@@ -10,6 +10,11 @@ urlpatterns = [
     path("matches/add/", views.match_create, name="match-create"),
     path("matches/<int:pk>/", views.match_detail, name="match-detail"),
     path("matches/<int:pk>/edit/", views.match_edit, name="match-edit"),
+    path(
+        "matches/<int:pk>/edit/<str:field_name>/",
+        views.match_field_edit,
+        name="match-field-edit",
+    ),
     path("matches/<int:pk>/delete/", views.match_delete, name="match-delete"),
     path("matches/<int:pk>/score/", views.match_score, name="match-score"),
     path("players/", views.player_list, name="player-list"),
