@@ -13,4 +13,5 @@
     {{ field.errors }}
     {{ form.non_field_errors }}
   </div>
+  <span class="visually-hidden" aria-hidden="true" hx-get="{% url 'match-field-edit' match.pk field_name %}?cancel=1" hx-trigger="keydown[key=='Escape'] from:body" hx-target="#match-detail-{{ field_name }}" hx-swap="outerHTML">Cancel edit</span>
 </form>

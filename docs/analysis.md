@@ -221,6 +221,7 @@
 - [x] Show opponent, venue, date, and notes in a full-width unboxed list below the scoreboard.
 - [x] Allow authenticated users to edit each match-detail row independently with HTMX.
 - [x] Keep match-form validation errors in the edited row.
+- [x] Close an active match-detail edit without saving when Escape is pressed.
 - [x] Preserve ordinary non-HTMX form behavior.
 - [x] Replace the five-goal feed and separate event history with one complete goal history attached to the scoreboard.
 - [x] Order the complete goal history newest first and visually highlight the latest goal.

@@ -460,6 +460,19 @@ async def match_field_edit(
     except tracker.models.Match.DoesNotExist:
         return await _not_found_response(request)
     request.user = await request.auser()
+    if request.GET.get("cancel") == "1":
+        if request.headers.get("HX-Request") == "true":
+            return render(
+                request,
+                "tracker/partials/match_detail_row.html",
+                {
+                    "match": match,
+                    "can_modify": True,
+                    "field_name": field_name,
+                    "field_label": MATCH_EDIT_LABELS[field_name],
+                },
+            )
+        return redirect("match-detail", pk=match.pk)
     original_is_home = match.is_home
     form_field_name = MATCH_EDIT_FIELDS[field_name]
     form = tracker.forms.MatchForm(

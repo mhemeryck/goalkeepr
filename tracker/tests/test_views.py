@@ -371,6 +371,32 @@ def test_match_detail_can_open_one_inline_edit_row(
 
 
 @pytest.mark.django_db
+def test_escape_trigger_closes_inline_edit_without_saving(
+    user: User,
+    client: Client,
+) -> None:
+    match = make_match()
+    client.force_login(user)
+    edit_url = reverse("match-field-edit", args=[match.pk, "opponent"])
+
+    edit_response = client.get(edit_url, HTTP_HX_REQUEST="true")
+    cancel_response = client.get(
+        edit_url,
+        {"cancel": "1"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    match.refresh_from_db()
+    assert "keydown[key=='Escape'] from:body" in edit_response.text
+    assert f'hx-get="{edit_url}?cancel=1"' in edit_response.text
+    assert cancel_response.status_code == 200
+    assert cancel_response.templates[0].name == "tracker/partials/match_detail_row.html"
+    assert 'id="match-detail-opponent"' in cancel_response.text
+    assert 'name="opponent_name"' not in cancel_response.text
+    assert match.opponent.name == "United"
+
+
+@pytest.mark.django_db
 def test_inline_match_field_edit_only_updates_selected_field(
     user: User,
     client: Client,
