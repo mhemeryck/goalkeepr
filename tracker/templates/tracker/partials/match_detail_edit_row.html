@@ -1,0 +1,17 @@
+<form id="match-detail-{{ field_name }}" class="match-detail-row match-detail-editing" method="post" action="{% url 'match-field-edit' match.pk field_name %}" hx-post="{% url 'match-field-edit' match.pk field_name %}" hx-target="#match-detail-{{ field_name }}" hx-swap="outerHTML">
+  {% csrf_token %}
+  <label class="match-detail-label" for="{{ field.id_for_label }}">{{ field_label }}</label>
+  <div class="match-detail-control">
+    {{ field }}
+    <button type="submit">Save</button>
+    {% if field_name == "opponent" %}
+      <small>Choose an existing team or enter a new name.</small>
+      <datalist id="opponent-teams">
+        {% for name in opponent_names %}<option value="{{ name }}"></option>{% endfor %}
+      </datalist>
+    {% endif %}
+    {{ field.errors }}
+    {{ form.non_field_errors }}
+  </div>
+  <span class="visually-hidden" aria-hidden="true" hx-get="{% url 'match-field-edit' match.pk field_name %}?cancel=1" hx-trigger="keydown[key=='Escape'] from:body" hx-target="#match-detail-{{ field_name }}" hx-swap="outerHTML">Cancel edit</span>
+</form>

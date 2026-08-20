@@ -8,6 +8,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Q, QuerySet, Value, When
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -26,6 +27,21 @@ class TeamResult(typing.TypedDict):
 class ScoredMatch(typing.Protocol):
     home_score_value: int
     away_score_value: int
+
+
+MATCH_EDIT_FIELDS = {
+    "opponent": "opponent_name",
+    "venue": "is_home",
+    "date": "match_date",
+    "notes": "notes",
+}
+MATCH_EDIT_LABELS = {
+    "opponent": "Opponent",
+    "venue": "Venue",
+    "date": "Date",
+    "notes": "Notes",
+}
+SCOREBOARD_FIELDS = frozenset({"opponent", "venue", "date"})
 
 
 async def _form_is_valid(form: forms.BaseForm) -> bool:
@@ -134,11 +150,16 @@ async def _team_result(pk: int) -> TeamResult | None:
     )
 
 
-async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
+async def _score_context(
+    match: tracker.models.Match,
+    *,
+    can_modify: bool,
+) -> dict[str, typing.Any]:
     team_name = str(settings.TEAM_NAME)
-    recent_events = [
-        event async for event in match.score_events.select_related("scorer").all()[:5]
+    events = [
+        event async for event in match.score_events.select_related("scorer").all()
     ]
+    is_future_fixture = _is_future_fixture(match)
     return {
         "match": match,
         "home_name": team_name if match.is_home else match.opponent.name,
@@ -154,9 +175,32 @@ async def _score_context(match: tracker.models.Match) -> dict[str, typing.Any]:
             if match.is_home
             else tracker.models.ScoreEvent.Side.AWAY
         ),
-        "player_names": await _player_names(),
-        "recent_events": recent_events,
+        "player_names": (
+            await _player_names() if can_modify and not is_future_fixture else []
+        ),
+        "events": events,
+        "can_modify": can_modify,
+        "is_future_fixture": is_future_fixture,
     }
+
+
+async def _match_detail_context(
+    match: tracker.models.Match,
+    *,
+    can_modify: bool,
+    editing_field: str | None = None,
+    edit_form: tracker.forms.MatchForm | None = None,
+) -> dict[str, typing.Any]:
+    context = await _score_context(match, can_modify=can_modify)
+    if editing_field is not None and edit_form is not None:
+        form_field_name = MATCH_EDIT_FIELDS[editing_field]
+        context["editing_field"] = editing_field
+        context["form"] = edit_form
+        context["edit_field"] = edit_form[form_field_name]
+        context["field_label"] = MATCH_EDIT_LABELS[editing_field]
+        if editing_field == "opponent":
+            context["opponent_names"] = await _team_names()
+    return context
 
 
 async def _form_context(
@@ -175,16 +219,17 @@ def _save_match_form(
     original_is_home: bool | None = None,
 ) -> tracker.models.Match:
     with transaction.atomic():
-        name = str(form.cleaned_data["opponent_name"])
-        opponent = tracker.models.Team.objects.filter(name__iexact=name).first()
-        if opponent is None:
-            try:
-                with transaction.atomic():
-                    opponent = tracker.models.Team.objects.create(name=name)
-            except IntegrityError:
-                opponent = tracker.models.Team.objects.get(name__iexact=name)
         match = form.save(commit=False)
-        match.opponent = opponent
+        if "opponent_name" in form.cleaned_data:
+            name = str(form.cleaned_data["opponent_name"])
+            opponent = tracker.models.Team.objects.filter(name__iexact=name).first()
+            if opponent is None:
+                try:
+                    with transaction.atomic():
+                        opponent = tracker.models.Team.objects.create(name=name)
+                except IntegrityError:
+                    opponent = tracker.models.Team.objects.get(name__iexact=name)
+            match.opponent = opponent
         match.save()
         if original_is_home is not None and original_is_home != match.is_home:
             match.score_events.update(
@@ -352,9 +397,7 @@ async def match_create(request: HttpRequest) -> HttpResponse:
     form = tracker.forms.MatchForm(request.POST or None)
     if request.method == "POST" and await _form_is_valid(form):
         match = await sync_to_async(_save_match_form)(form)
-        if _is_future_fixture(match):
-            return redirect("match-detail", pk=match.pk)
-        return redirect("match-score", pk=match.pk)
+        return redirect("match-detail", pk=match.pk)
     return render(
         request,
         "tracker/form.html",
@@ -369,15 +412,25 @@ async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
         )
     except tracker.models.Match.DoesNotExist:
         return await _not_found_response(request)
-    events = [
-        event async for event in match.score_events.select_related("scorer").all()
-    ]
     user = await request.auser()
     request.user = user
-    context = await _score_context(match)
-    context["events"] = events
-    context["can_modify"] = user.is_authenticated
-    context["is_future_fixture"] = _is_future_fixture(match)
+    editing_field = request.GET.get("edit")
+    edit_form = None
+    if user.is_authenticated and editing_field in MATCH_EDIT_FIELDS:
+        form_field_name = MATCH_EDIT_FIELDS[editing_field]
+        edit_form = tracker.forms.MatchForm(
+            instance=match,
+            editable_field=form_field_name,
+        )
+        edit_form.fields[form_field_name].widget.attrs["autofocus"] = True
+    else:
+        editing_field = None
+    context = await _match_detail_context(
+        match,
+        can_modify=user.is_authenticated,
+        editing_field=editing_field,
+        edit_form=edit_form,
+    )
     return render(request, "tracker/match_detail.html", context)
 
 
@@ -389,16 +442,92 @@ async def match_edit(request: HttpRequest, pk: int) -> HttpResponse:
         )
     except tracker.models.Match.DoesNotExist:
         return await _not_found_response(request)
+    return redirect("match-detail", pk=match.pk)
+
+
+@login_required
+async def match_field_edit(
+    request: HttpRequest,
+    pk: int,
+    field_name: str,
+) -> HttpResponse:
+    if field_name not in MATCH_EDIT_FIELDS:
+        return await _not_found_response(request)
+    try:
+        match = await tracker.models.Match.objects.select_related("opponent").aget(
+            pk=pk
+        )
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
     request.user = await request.auser()
-    original_is_home = match.is_home
-    form = tracker.forms.MatchForm(request.POST or None, instance=match)
-    if request.method == "POST" and await _form_is_valid(form):
-        await sync_to_async(_save_match_form)(form, original_is_home)
+    if request.GET.get("cancel") == "1":
+        if request.headers.get("HX-Request") == "true":
+            return render(
+                request,
+                "tracker/partials/match_detail_row.html",
+                {
+                    "match": match,
+                    "can_modify": True,
+                    "field_name": field_name,
+                    "field_label": MATCH_EDIT_LABELS[field_name],
+                },
+            )
         return redirect("match-detail", pk=match.pk)
+    original_is_home = match.is_home
+    form_field_name = MATCH_EDIT_FIELDS[field_name]
+    form = tracker.forms.MatchForm(
+        request.POST or None,
+        instance=match,
+        editable_field=form_field_name,
+    )
+    form.fields[form_field_name].widget.attrs["autofocus"] = True
+    if request.method == "POST" and await _form_is_valid(form):
+        match = await sync_to_async(_save_match_form)(form, original_is_home)
+        if request.headers.get("HX-Request") == "true":
+            context: dict[str, typing.Any] = {
+                "match": match,
+                "can_modify": True,
+                "field_name": field_name,
+                "field_label": MATCH_EDIT_LABELS[field_name],
+                "refresh_match": field_name in SCOREBOARD_FIELDS,
+            }
+            if context["refresh_match"]:
+                context.update(await _score_context(match, can_modify=True))
+            return render(
+                request,
+                "tracker/partials/match_detail_row_saved.html",
+                context,
+            )
+        return redirect("match-detail", pk=match.pk)
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "tracker/partials/match_detail_edit_row.html",
+            {
+                "match": match,
+                "form": form,
+                "field": form[form_field_name],
+                "field_name": field_name,
+                "field_label": MATCH_EDIT_LABELS[field_name],
+                "opponent_names": (
+                    await _team_names() if field_name == "opponent" else []
+                ),
+            },
+        )
+    if not form.is_bound:
+        detail_url = reverse("match-detail", args=[match.pk])
+        return redirect(f"{detail_url}?edit={field_name}")
+    match = await tracker.models.Match.objects.select_related("opponent").aget(pk=pk)
     return render(
         request,
-        "tracker/form.html",
-        await _form_context(form, "Edit match"),
+        "tracker/match_detail.html",
+        await _match_detail_context(
+            match,
+            can_modify=True,
+            editing_field=field_name,
+            edit_form=form,
+        ),
+        status=400,
     )
 
 
@@ -429,10 +558,7 @@ async def match_score(request: HttpRequest, pk: int) -> HttpResponse:
         )
     except tracker.models.Match.DoesNotExist:
         return await _not_found_response(request)
-    if _is_future_fixture(match):
-        return redirect("match-detail", pk=match.pk)
-    request.user = await request.auser()
-    return render(request, "tracker/match_score.html", await _score_context(match))
+    return redirect("match-detail", pk=match.pk)
 
 
 @require_POST
@@ -470,9 +596,13 @@ async def score_goal(
         side=side,
         scorer=scorer,
     )
-    return render(
-        request, "tracker/partials/scoreboard.html", await _score_context(match)
-    )
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "tracker/partials/scoreboard.html",
+            await _score_context(match, can_modify=True),
+        )
+    return redirect("match-detail", pk=match.pk)
 
 
 @require_POST
@@ -495,6 +625,10 @@ async def score_undo(
     ).afirst()
     if event is not None:
         await event.adelete()
-    return render(
-        request, "tracker/partials/scoreboard.html", await _score_context(match)
-    )
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "tracker/partials/scoreboard.html",
+            await _score_context(match, can_modify=True),
+        )
+    return redirect("match-detail", pk=match.pk)

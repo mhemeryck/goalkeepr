@@ -211,3 +211,22 @@
 - [x] Allow team names to be edited inline.
 - [x] Allow teams to be deleted only when they have no matches.
 - [x] Link team names to team management for authenticated users where the existing interface permits.
+
+## Iteration 10: Unified Match Page
+
+- [x] Make the public match-detail URL the canonical page for viewing, scoring, and editing a match.
+- [x] Keep the pitch-style scoreboard as the visual focus for authenticated and anonymous users.
+- [x] Hide scorer inputs, goal controls, undo controls, and management actions from anonymous users.
+- [x] Keep score entry unavailable for future fixtures while presenting them in the same visual frame.
+- [x] Show opponent, venue, date, and notes in a full-width unboxed list below the scoreboard.
+- [x] Allow authenticated users to edit each match-detail row independently with HTMX.
+- [x] Keep match-form validation errors in the edited row.
+- [x] Close an active match-detail edit without saving when Escape is pressed.
+- [x] Preserve ordinary non-HTMX form behavior.
+- [x] Replace the five-goal feed and separate event history with one complete goal history attached to the scoreboard.
+- [x] Order the complete goal history newest first and visually highlight the latest goal.
+- [x] Show the scoring team, optional scorer, and recorded time for each goal.
+- [x] Show an empty-history message when no goals have been recorded.
+- [x] Redirect match creation, editing, and score-entry flows to the canonical match-detail page.
+- [x] Keep match deletion as a separate confirmation flow.
+- [x] Add focused tests for public visibility, authenticated controls, inline editing, fixtures, and complete newest-first goal history.

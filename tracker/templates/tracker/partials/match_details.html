@@ -1,0 +1,25 @@
+<section id="match-details" class="match-details">
+  <h2>Match details</h2>
+  <div class="match-detail-list">
+    {% if editing_field == "opponent" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="opponent" field_label="Opponent" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="opponent" field_label="Opponent" %}
+    {% endif %}
+    {% if editing_field == "venue" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="venue" field_label="Venue" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="venue" field_label="Venue" %}
+    {% endif %}
+    {% if editing_field == "date" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="date" field_label="Date" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="date" field_label="Date" %}
+    {% endif %}
+    {% if editing_field == "notes" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="notes" field_label="Notes" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="notes" field_label="Notes" %}
+    {% endif %}
+  </div>
+</section>

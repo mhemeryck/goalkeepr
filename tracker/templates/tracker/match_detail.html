@@ -1,69 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}Match details | Goalkeepr{% endblock %}
+{% block title %}{{ home_name }} v {{ away_name }} | Goalkeepr{% endblock %}
 
 {% block content %}
-  <div class="page-heading">
-    <div>
-      <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
-      {% if is_future_fixture %}
-        <h1>
-          {% if match.is_home %}
-            {{ home_name }} v {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}
-          {% else %}
-            {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %} v {{ away_name }}
-          {% endif %}
-        </h1>
-      {% else %}
-        <h1>
-          {% if match.is_home %}
-            {{ home_name }} {{ home_score }}–{{ away_score }} {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}
-          {% else %}
-            {% if can_modify %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %} {{ home_score }}–{{ away_score }} {{ away_name }}
-          {% endif %}
-        </h1>
-      {% endif %}
-    </div>
-    {% if can_modify and not is_future_fixture %}<a role="button" href="{% url 'match-score' match.pk %}">Enter score</a>{% endif %}
-  </div>
-  {% if can_modify %}
-    <div class="text-actions">
-      <a href="{% url 'match-edit' match.pk %}">Edit match</a>
-      <a class="danger-link" href="{% url 'match-delete' match.pk %}">Delete match</a>
-    </div>
-  {% endif %}
-  <article class="match-meta">
-    <dl>
-      <div><dt>Venue</dt><dd>{% if match.is_home %}Home{% else %}Away{% endif %}</dd></div>
-      {% if match.notes %}<div><dt>Notes</dt><dd>{{ match.notes|linebreaksbr }}</dd></div>{% endif %}
-    </dl>
-  </article>
-  {% if is_future_fixture %}
-    <p class="fixture-notice">Score entry becomes available on the match date.</p>
-  {% else %}
-    <section class="event-history">
-      <h2>Goal history</h2>
-      {% if events %}
-        <ol>
-          {% for event in events reversed %}
-            <li>
-              <strong>
-                {% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}
-                {% if event.scorer %}
-                  {% if can_modify %}
-                    <a class="event-scorer" href="{% url 'player-list' %}#player-{{ event.scorer_id }}">by {{ event.scorer.name }}</a>
-                  {% else %}
-                    <span class="event-scorer">by {{ event.scorer.name }}</span>
-                  {% endif %}
-                {% endif %}
-              </strong>
-              <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
-            </li>
-          {% endfor %}
-        </ol>
-      {% else %}
-        <p>No goals recorded.</p>
-      {% endif %}
-    </section>
-  {% endif %}
+  {% include "tracker/partials/match_heading.html" %}
+  {% include "tracker/partials/scoreboard.html" %}
+  {% include "tracker/partials/match_details.html" %}
 {% endblock %}
