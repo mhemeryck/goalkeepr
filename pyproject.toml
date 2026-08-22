@@ -23,7 +23,7 @@ dev = [
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "goalkeepr.test_settings"
-testpaths = ["tracker/tests"]
+testpaths = ["**/tests"]
 
 [tool.ruff]
 line-length = 88
