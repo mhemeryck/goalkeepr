@@ -25,13 +25,10 @@
 - Ruff formatting and linting
 - Relevant tests and checks before completion
 
-## Iteration Workflow
+## Repository Layout
 
-- Define each iteration with the agent.
-- Record the high-level iteration requirements in `docs/analysis.md` and commit them before implementation.
-- Start a new agent session to implement the recorded iteration in one shot.
-- The implementation session must inspect the iteration and determine the necessary work.
-- When requirements leave questions open, make a fair best-effort decision and continue.
+- Organize code and infrastructure by product responsibility, not implementation technology.
+- Keep each deployable repository self-contained, including its application code, container build, application-specific infrastructure, Kubernetes resources, and CI/CD pipeline.
 
 ## Frontend
 
