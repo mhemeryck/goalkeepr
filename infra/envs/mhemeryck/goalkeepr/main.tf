@@ -32,9 +32,16 @@ module "goalkeepr" {
   source = "../../../modules/goalkeepr"
 
   billing_alert_email = var.billing_alert_email
+  image               = var.image
 }
 
 variable "billing_alert_email" {
   description = "Email address receiving Goalkeepr backup budget alerts."
   type        = string
+}
+
+variable "image" {
+  description = "Goalkeepr container image."
+  type        = string
+  default     = "mhemeryck/goalkeepr:2026.08.22.2"
 }
