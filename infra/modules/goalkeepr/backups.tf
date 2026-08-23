@@ -125,3 +125,170 @@ resource "aws_budgets_budget" "monthly_cost" {
     subscriber_email_addresses = [var.billing_alert_email]
   }
 }
+
+resource "kubernetes_cron_job_v1" "postgres_backup" {
+  metadata {
+    name        = "postgres-backup"
+    namespace   = "goalkeepr"
+    annotations = {}
+    labels      = {}
+  }
+
+  spec {
+    schedule                      = "0 2 * * *"
+    concurrency_policy            = "Forbid"
+    failed_jobs_history_limit     = 7
+    successful_jobs_history_limit = 7
+    starting_deadline_seconds     = 3600
+
+    job_template {
+      metadata {
+        annotations = {}
+        labels      = {}
+      }
+
+      spec {
+        backoff_limit = 2
+
+        template {
+          metadata {
+            annotations = {}
+            labels      = {}
+          }
+
+          spec {
+            automount_service_account_token = false
+            enable_service_links            = false
+            restart_policy                  = "Never"
+
+            volume {
+              name = "backup"
+
+              empty_dir {}
+            }
+
+            init_container {
+              name    = "dump"
+              image   = "postgres:18-alpine"
+              command = ["/bin/sh", "-ceu", "pg_dump --format=custom --no-owner --no-privileges --file=/backup/goalkeepr.dump\npg_restore --list /backup/goalkeepr.dump >/dev/null\n"]
+
+              security_context {
+                allow_privilege_escalation = false
+                run_as_non_root            = false
+                run_as_user                = 0
+              }
+
+              env {
+                name  = "PGDATABASE"
+                value = "goalkeepr"
+              }
+
+              env {
+                name  = "PGHOST"
+                value = "postgres"
+              }
+
+              env {
+                name = "PGPASSWORD"
+
+                value_from {
+                  secret_key_ref {
+                    name     = "postgres"
+                    key      = "password"
+                    optional = false
+                  }
+                }
+              }
+
+              env {
+                name = "PGUSER"
+
+                value_from {
+                  secret_key_ref {
+                    name     = "postgres"
+                    key      = "username"
+                    optional = false
+                  }
+                }
+              }
+
+              volume_mount {
+                name       = "backup"
+                mount_path = "/backup"
+              }
+
+              resources {
+                limits   = {}
+                requests = {}
+              }
+            }
+
+            container {
+              name    = "upload"
+              image   = "amazon/aws-cli:2.35.11"
+              command = ["/bin/sh", "-ceu", "timestamp=\"$(date -u +%Y-%m-%dT%H-%M-%SZ)\"\naws s3 cp /backup/goalkeepr.dump \"s3://$${S3_BUCKET}/goalkeepr/$${timestamp}.dump\" --only-show-errors\n"]
+
+              env {
+                name = "AWS_ACCESS_KEY_ID"
+
+                value_from {
+                  secret_key_ref {
+                    name     = "goalkeepr-backup"
+                    key      = "access_key_id"
+                    optional = false
+                  }
+                }
+              }
+
+              env {
+                name  = "AWS_DEFAULT_REGION"
+                value = "eu-central-1"
+              }
+
+              env {
+                name = "AWS_SECRET_ACCESS_KEY"
+
+                value_from {
+                  secret_key_ref {
+                    name     = "goalkeepr-backup"
+                    key      = "secret_access_key"
+                    optional = false
+                  }
+                }
+              }
+
+              env {
+                name = "S3_BUCKET"
+
+                value_from {
+                  secret_key_ref {
+                    name     = "goalkeepr-backup"
+                    key      = "bucket"
+                    optional = false
+                  }
+                }
+              }
+
+              volume_mount {
+                name       = "backup"
+                mount_path = "/backup"
+              }
+
+              resources {
+                limits   = {}
+                requests = {}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      spec[0].job_template[0].spec[0].completions,
+      spec[0].job_template[0].spec[0].parallelism,
+    ]
+  }
+}
