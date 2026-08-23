@@ -1,6 +1,6 @@
 # Infrastructure
 
-Each Terraform root has an independent remote state and owns one Goalkeepr responsibility.
+`modules/goalkeepr` defines the complete Goalkeepr infrastructure template.
+`envs/mhemeryck/goalkeepr` instantiates it for the home environment.
 
-`backups` owns the AWS database-backup storage and upload identity.
-`deployment` will own the Kubernetes application deployment.
+The environment state is stored at `goalkeepr/terraform.tfstate` in the shared Terraform state bucket.
