@@ -28,10 +28,18 @@ provider "kubernetes" {
   config_path = pathexpand("~/.kube/config")
 }
 
+locals {
+  hosts = [
+    "goalkeepr.mhemeryck.xyz",
+    "goalkeepr.app",
+  ]
+}
+
 module "goalkeepr" {
   source = "../../../modules/goalkeepr"
 
   billing_alert_email = var.billing_alert_email
+  hosts               = local.hosts
   image               = var.image
 }
 

@@ -7,3 +7,8 @@ variable "image" {
   description = "Goalkeepr container image."
   type        = string
 }
+
+variable "hosts" {
+  description = "Hostnames served by Goalkeepr."
+  type        = list(string)
+}

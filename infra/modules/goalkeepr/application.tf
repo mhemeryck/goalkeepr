@@ -42,12 +42,12 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
 
           env {
             name  = "DJANGO_ALLOWED_HOSTS"
-            value = "goalkeepr.mhemeryck.xyz,goalkeepr.app"
+            value = local.allowed_hosts
           }
 
           env {
             name  = "DJANGO_CSRF_TRUSTED_ORIGINS"
-            value = "https://goalkeepr.mhemeryck.xyz,https://goalkeepr.app"
+            value = local.csrf_trusted_origins
           }
 
           env {
@@ -119,7 +119,7 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
 
               http_header {
                 name  = "Host"
-                value = "goalkeepr.mhemeryck.xyz"
+                value = local.readiness_host
               }
             }
 
@@ -166,43 +166,27 @@ resource "kubernetes_ingress_v1" "goalkeepr" {
     ingress_class_name = "traefik"
 
     tls {
-      hosts       = ["goalkeepr.mhemeryck.xyz", "goalkeepr.app"]
+      hosts       = var.hosts
       secret_name = "goalkeepr-mhemeryck-xyz-tls"
     }
 
-    rule {
-      host = "goalkeepr.mhemeryck.xyz"
+    dynamic "rule" {
+      for_each = var.hosts
 
-      http {
-        path {
-          path_type = "ImplementationSpecific"
+      content {
+        host = rule.value
 
-          backend {
-            service {
-              name = "goalkeepr"
+        http {
+          path {
+            path_type = "ImplementationSpecific"
 
-              port {
-                number = 80
-              }
-            }
-          }
-        }
-      }
-    }
+            backend {
+              service {
+                name = "goalkeepr"
 
-    rule {
-      host = "goalkeepr.app"
-
-      http {
-        path {
-          path_type = "ImplementationSpecific"
-
-          backend {
-            service {
-              name = "goalkeepr"
-
-              port {
-                number = 80
+                port {
+                  number = 80
+                }
               }
             }
           }
