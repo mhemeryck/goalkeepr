@@ -102,6 +102,27 @@ module "upload_user" {
   }
 }
 
+resource "kubernetes_secret_v1" "backup" {
+  wait_for_service_account_token = false
+
+  metadata {
+    name      = "goalkeepr-backup"
+    namespace = "goalkeepr"
+  }
+
+  data = {
+    access_key_id     = module.upload_user.access_key_id
+    bucket            = module.bucket.s3_bucket_id
+    secret_access_key = module.upload_user.access_key_secret
+  }
+
+  type = "Opaque"
+
+  lifecycle {
+    ignore_changes = [metadata[0].annotations]
+  }
+}
+
 resource "aws_budgets_budget" "monthly_cost" {
   name         = "goalkeepr-backups"
   budget_type  = "COST"
