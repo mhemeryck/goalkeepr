@@ -1,4 +1,25 @@
+resource "random_password" "django_secret_key" {
+  length = 64
+}
+
+resource "kubernetes_secret_v1" "goalkeepr" {
+  wait_for_service_account_token = false
+
+  metadata {
+    name      = "goalkeepr"
+    namespace = "goalkeepr"
+  }
+
+  data = {
+    secret_key = random_password.django_secret_key.result
+  }
+
+  type = "Opaque"
+}
+
 resource "kubernetes_deployment_v1" "goalkeepr" {
+  depends_on = [kubernetes_secret_v1.goalkeepr]
+
   wait_for_rollout = false
 
   metadata {
@@ -28,6 +49,11 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
       metadata {
         labels = {
           app = "goalkeepr"
+        }
+
+        # Increment alongside a deliberate Django key replacement to roll pods.
+        annotations = {
+          "goalkeepr.app/django-secret-key-generation" = "2"
         }
       }
 
