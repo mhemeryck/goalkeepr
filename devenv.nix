@@ -1,4 +1,9 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   postgresEnv = {
     POSTGRES_DB = "goalkeepr";
@@ -23,7 +28,13 @@ in
   packages = with pkgs; [
     nushell
     ruff
+    terraform
   ];
+
+  env = {
+    AWS_PROFILE = "mhemeryck";
+    TF_VAR_billing_alert_email = config.secretspec.secrets.BILLING_ALERT_EMAIL;
+  };
 
   services.postgres = {
     enable = true;

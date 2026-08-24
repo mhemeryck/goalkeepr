@@ -2,4 +2,13 @@ inputs:
   nixpkgs:
     url: github:NixOS/nixpkgs/nixpkgs-unstable
 
+nixpkgs:
+  permitted_unfree_packages:
+    - terraform
+
 shell: nu
+
+secretspec:
+  enable: true
+  provider: pass
+  profile: default
