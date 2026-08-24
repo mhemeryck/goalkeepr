@@ -29,7 +29,7 @@ provider "aws" {
 }
 
 provider "kubernetes" {
-  config_path = pathexpand("~/.kube/config")
+  config_path = pathexpand(var.kubeconfig_path)
 }
 
 locals {
@@ -56,4 +56,10 @@ variable "image" {
   description = "Goalkeepr container image."
   type        = string
   default     = "mhemeryck/goalkeepr:2026.08.22.2"
+}
+
+variable "kubeconfig_path" {
+  description = "Path to the kubeconfig used to manage the Goalkeepr namespace."
+  type        = string
+  default     = "~/.kube/config"
 }
