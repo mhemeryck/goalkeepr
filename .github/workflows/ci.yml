@@ -40,6 +40,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: quality
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
     permissions:
       contents: write
     concurrency:
@@ -86,3 +88,41 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.value }}
         run: gh release create "${VERSION}" --target "${GITHUB_SHA}" --title "${VERSION}" --generate-notes
+
+  deploy:
+    name: Apply infrastructure
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: terraform-apply
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: eu-central-1
+          role-to-assume: arn:aws:iam::109185239364:role/home-github-actions
+      - name: Configure Kubernetes access
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          umask 077
+          printf '%s' "${KUBECONFIG_CONTENT}" > "${RUNNER_TEMP}/kubeconfig"
+          printf 'KUBECONFIG=%s\n' "${RUNNER_TEMP}/kubeconfig" >> "${GITHUB_ENV}"
+      - name: Apply Terraform
+        working-directory: infra/envs/mhemeryck/goalkeepr
+        env:
+          TF_VAR_billing_alert_email: ${{ vars.BILLING_ALERT_EMAIL }}
+        run: |
+          terraform init
+          terraform fmt -check
+          terraform validate
+          terraform plan -out=tfplan -var "image=mhemeryck/goalkeepr:${{ needs.release.outputs.version }}" -var "kubeconfig_path=${KUBECONFIG}"
+          terraform apply -auto-approve tfplan
