@@ -1,3 +1,24 @@
+resource "random_password" "postgres_password" {
+  length  = 64
+  special = false
+}
+
+resource "kubernetes_secret_v1" "postgres" {
+  wait_for_service_account_token = false
+
+  metadata {
+    name      = "postgres"
+    namespace = "goalkeepr"
+  }
+
+  data = {
+    password = random_password.postgres_password.result
+    username = "goalkeepr"
+  }
+
+  type = "Opaque"
+}
+
 resource "kubernetes_persistent_volume_claim_v1" "postgres_data" {
   metadata {
     name      = "postgres-pgdata"
@@ -22,6 +43,8 @@ resource "kubernetes_persistent_volume_claim_v1" "postgres_data" {
 }
 
 resource "kubernetes_stateful_set_v1" "postgres" {
+  depends_on = [kubernetes_secret_v1.postgres]
+
   wait_for_rollout = false
 
   metadata {
@@ -48,6 +71,10 @@ resource "kubernetes_stateful_set_v1" "postgres" {
       metadata {
         labels = {
           app = "postgres"
+        }
+
+        annotations = {
+          "goalkeepr.app/postgres-secret-generation" = "1"
         }
       }
 

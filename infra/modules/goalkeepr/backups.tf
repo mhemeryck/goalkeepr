@@ -148,6 +148,8 @@ resource "aws_budgets_budget" "monthly_cost" {
 }
 
 resource "kubernetes_cron_job_v1" "postgres_backup" {
+  depends_on = [kubernetes_secret_v1.postgres]
+
   metadata {
     name        = "postgres-backup"
     namespace   = "goalkeepr"

@@ -18,7 +18,10 @@ resource "kubernetes_secret_v1" "goalkeepr" {
 }
 
 resource "kubernetes_deployment_v1" "goalkeepr" {
-  depends_on = [kubernetes_secret_v1.goalkeepr]
+  depends_on = [
+    kubernetes_secret_v1.goalkeepr,
+    kubernetes_secret_v1.postgres,
+  ]
 
   wait_for_rollout = false
 
