@@ -1,6 +1,11 @@
 resource "random_password" "postgres_password" {
   length  = 64
   special = false
+
+  # Rotating this password also requires changing the live database role.
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "kubernetes_secret_v1" "postgres" {

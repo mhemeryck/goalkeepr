@@ -38,7 +38,7 @@ module "bucket" {
       }
 
       noncurrent_version_expiration = {
-        days = 90
+        days = 1
       }
     },
   ]
