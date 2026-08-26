@@ -37,6 +37,20 @@ locals {
     "goalkeepr.mhemeryck.xyz",
     "goalkeepr.app",
   ]
+
+  image = var.image != null ? var.image : data.kubernetes_resource.goalkeepr[0].object.spec.template.spec.containers[0].image
+}
+
+data "kubernetes_resource" "goalkeepr" {
+  count = var.image == null ? 1 : 0
+
+  api_version = "apps/v1"
+  kind        = "Deployment"
+
+  metadata {
+    name      = "goalkeepr"
+    namespace = "goalkeepr"
+  }
 }
 
 module "goalkeepr" {
@@ -44,7 +58,7 @@ module "goalkeepr" {
 
   billing_alert_email = var.billing_alert_email
   hosts               = local.hosts
-  image               = var.image
+  image               = local.image
 }
 
 variable "billing_alert_email" {
@@ -55,7 +69,8 @@ variable "billing_alert_email" {
 variable "image" {
   description = "Goalkeepr container image."
   type        = string
-  default     = "mhemeryck/goalkeepr:2026.08.22.2"
+  default     = null
+  nullable    = true
 }
 
 variable "kubeconfig_path" {

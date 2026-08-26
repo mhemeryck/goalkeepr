@@ -117,10 +117,6 @@ resource "kubernetes_secret_v1" "backup" {
   }
 
   type = "Opaque"
-
-  lifecycle {
-    ignore_changes = [metadata[0].annotations]
-  }
 }
 
 resource "aws_budgets_budget" "monthly_cost" {
@@ -172,6 +168,7 @@ resource "kubernetes_cron_job_v1" "postgres_backup" {
 
       spec {
         backoff_limit = 2
+        parallelism   = 1
 
         template {
           metadata {
@@ -309,9 +306,7 @@ resource "kubernetes_cron_job_v1" "postgres_backup" {
   }
 
   lifecycle {
-    ignore_changes = [
-      spec[0].job_template[0].spec[0].completions,
-      spec[0].job_template[0].spec[0].parallelism,
-    ]
+    # The provider renders Kubernetes' omitted completion default as zero.
+    ignore_changes = [spec[0].job_template[0].spec[0].completions]
   }
 }
