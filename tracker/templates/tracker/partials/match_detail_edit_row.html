@@ -4,12 +4,6 @@
   <div class="match-detail-control">
     {{ field }}
     <button type="submit">Save</button>
-    {% if field_name == "opponent" %}
-      <small>Choose an existing team or enter a new name.</small>
-      <datalist id="opponent-teams">
-        {% for name in opponent_names %}<option value="{{ name }}"></option>{% endfor %}
-      </datalist>
-    {% endif %}
     {{ field.errors }}
     {{ form.non_field_errors }}
   </div>
