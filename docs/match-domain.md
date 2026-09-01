@@ -28,19 +28,22 @@ It is the design source of truth for these concepts.
 - `Team` belongs to one club and season, and records its age group and optional designation.
 - `Match` has required `home_team` and `away_team` relationships, a match date, optional notes, and an explicit status.
   The home and away teams must differ.
+  Both teams must belong to the same season.
 - `Competition` groups a team's longer-running seasonal fixtures and records its level where known.
 - `Tournament` groups its short-lived child matches and records their shared name, date, and location.
 - A match may belong to a competition or tournament when that context is known.
 - `ScoreEvent` stores its match, scoring side, optional scorer, `recorded_at`, and nullable `occurred_at` timestamp.
 - Current and final scores are derived by counting score events for each side.
 
-## Club Context And User Defaults
+## Club Context And Match Entry
 
 - The `PRIMARY_CLUB_NAME` setting identifies the club this installation serves.
   It is not a claim that the club is the home side in every fixture.
-- Each user has a changeable default team belonging to the primary club.
-- New-match entry pre-fills the user's default team, so age group selection is not repeated for every fixture.
-- The scorekeeper must still explicitly record whether that team is the home or away side, because this is a fact of each fixture.
+- New-match entry leaves both participants unselected because either side may belong to the primary club.
+- Team choices prioritize the season containing today's date while retaining teams from other seasons.
+- A match's season is derived from its participants rather than stored separately.
+  A match date may fall outside that season's date boundaries.
+- Age groups remain free text with suggestions from existing teams rather than a fixed enumeration.
 
 ## Historical Results
 

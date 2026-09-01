@@ -33,7 +33,6 @@ urlpatterns = [
     path("teams/", views.team_list, name="team-list"),
     path("teams/<int:pk>/edit/", views.team_edit, name="team-edit"),
     path("teams/<int:pk>/delete/", views.team_delete, name="team-delete"),
-    path("preferences/", views.preferences, name="preferences"),
     path(
         "matches/<int:pk>/goal/<score_side:side>/", views.score_goal, name="score-goal"
     ),

@@ -1,7 +1,6 @@
 from datetime import date, timedelta
 
 import pytest
-from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone, translation
@@ -151,11 +150,18 @@ def test_score_event_occurrence_time_is_optional() -> None:
 
 
 @pytest.mark.django_db
-def test_default_team_must_belong_to_primary_club() -> None:
-    preference = tracker.models.UserPreference(
-        user=User.objects.create_user(username="parent"),
-        default_team=make_team("Another Club"),
+def test_match_teams_must_belong_to_same_season() -> None:
+    match = make_match()
+    other_season = tracker.models.Season.objects.create(
+        name="2025-2026",
+        start_date=date(2025, 7, 1),
+        end_date=date(2026, 6, 30),
+    )
+    match.away_team = tracker.models.Team.objects.create(
+        club=match.away_team.club,
+        season=other_season,
+        age_group="U10",
     )
 
-    with pytest.raises(ValidationError, match="primary club"):
-        preference.full_clean()
+    with pytest.raises(ValidationError, match="same season"):
+        match.full_clean()

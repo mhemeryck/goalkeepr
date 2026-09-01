@@ -2,6 +2,9 @@
   <form class="inline-team-form" method="post" action="{% url 'team-edit' result.team.pk %}" hx-post="{% url 'team-edit' result.team.pk %}" hx-target="#team-{{ result.team.pk }}" hx-swap="outerHTML">
     {% csrf_token %}
     {{ form.as_p }}
+    <datalist id="age-groups">
+      {% for age_group in age_groups %}<option value="{{ age_group }}"></option>{% endfor %}
+    </datalist>
     <button type="submit">Save</button>
     {{ form.non_field_errors }}
   </form>

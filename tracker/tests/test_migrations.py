@@ -2,7 +2,6 @@ from datetime import date
 
 import pytest
 from django.conf import settings
-from django.contrib.auth import get_user_model
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 
@@ -60,7 +59,6 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     old_match = old_apps.get_model("tracker", "Match")
     old_player = old_apps.get_model("tracker", "Player")
     old_event = old_apps.get_model("tracker", "ScoreEvent")
-    user = get_user_model().objects.create_user(username="migration-parent")
     opponent = old_team.objects.create(name="United")
     player = old_player.objects.create(name="Alex")
     finished_match = old_match.objects.create(
@@ -88,7 +86,6 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     match = apps.get_model("tracker", "Match")
     score_event = apps.get_model("tracker", "ScoreEvent")
     membership = apps.get_model("tracker", "TeamMembership")
-    preference = apps.get_model("tracker", "UserPreference")
 
     primary_club = club.objects.get(name=settings.PRIMARY_CLUB_NAME)
     primary_team = team.objects.get(club=primary_club)
@@ -110,6 +107,4 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     assert migrated_event.scorer.name == "Alex"
     assert migrated_event.occurred_at is None
     assert membership.objects.filter(player_id=player.pk, team=primary_team).exists()
-    assert preference.objects.get(user_id=user.pk).default_team == primary_team
-
     MigrationExecutor(connection).migrate([("tracker", "0004_expand_match_domain")])

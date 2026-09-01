@@ -18,8 +18,6 @@ def expand_match_domain(apps, schema_editor):
     match_model = apps.get_model("tracker", "Match")
     player_model = apps.get_model("tracker", "Player")
     membership_model = apps.get_model("tracker", "TeamMembership")
-    preference_model = apps.get_model("tracker", "UserPreference")
-    user_model = apps.get_model(*settings.AUTH_USER_MODEL.split("."))
 
     season, _ = season_model.objects.get_or_create(
         name=SEASON_NAME,
@@ -71,13 +69,6 @@ def expand_match_domain(apps, schema_editor):
         [
             membership_model(player_id=player.pk, team_id=primary_team.pk)
             for player in player_model.objects.all()
-        ],
-        ignore_conflicts=True,
-    )
-    preference_model.objects.bulk_create(
-        [
-            preference_model(user_id=user.pk, default_team_id=primary_team.pk)
-            for user in user_model.objects.all()
         ],
         ignore_conflicts=True,
     )
@@ -265,38 +256,6 @@ class Migration(migrations.Migration):
                 through="tracker.TeamMembership",
                 to="tracker.team",
             ),
-        ),
-        migrations.CreateModel(
-            name="UserPreference",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                (
-                    "default_team",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="user_preferences",
-                        to="tracker.team",
-                    ),
-                ),
-                (
-                    "user",
-                    models.OneToOneField(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="goalkeepr_preference",
-                        to=settings.AUTH_USER_MODEL,
-                    ),
-                ),
-            ],
         ),
         migrations.AlterField(
             model_name="team",
