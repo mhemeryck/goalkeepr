@@ -20,6 +20,12 @@ urlpatterns = [
         name="match-field-edit",
     ),
     path("matches/<int:pk>/delete/", views.match_delete, name="match-delete"),
+    path("matches/<int:pk>/swap/", views.match_swap_teams, name="match-swap-teams"),
+    path(
+        "matches/<int:pk>/status/<str:status>/",
+        views.match_set_status,
+        name="match-set-status",
+    ),
     path("matches/<int:pk>/score/", views.match_score, name="match-score"),
     path("players/", views.player_list, name="player-list"),
     path("players/<int:pk>/edit/", views.player_edit, name="player-edit"),
@@ -27,6 +33,7 @@ urlpatterns = [
     path("teams/", views.team_list, name="team-list"),
     path("teams/<int:pk>/edit/", views.team_edit, name="team-edit"),
     path("teams/<int:pk>/delete/", views.team_delete, name="team-delete"),
+    path("preferences/", views.preferences, name="preferences"),
     path(
         "matches/<int:pk>/goal/<score_side:side>/", views.score_goal, name="score-goal"
     ),

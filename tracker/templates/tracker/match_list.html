@@ -5,7 +5,7 @@
 {% block content %}
   <div class="page-heading">
     <div>
-      <p class="eyebrow">{{ TEAM_NAME }}</p>
+      <p class="eyebrow">{{ PRIMARY_CLUB_NAME }}</p>
       <h1>Matches</h1>
     </div>
     {% if user.is_authenticated %}<a role="button" href="{% url 'match-create' %}">Add match</a>{% endif %}

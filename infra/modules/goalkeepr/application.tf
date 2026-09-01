@@ -133,7 +133,7 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
           }
 
           env {
-            name  = "TEAM_NAME"
+            name  = "PRIMARY_CLUB_NAME"
             value = "K.F.C. Sparta Kolmont"
           }
 
@@ -152,7 +152,7 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
               }
             }
 
-            period_seconds = 5
+            period_seconds  = 5
             timeout_seconds = 2
           }
         }

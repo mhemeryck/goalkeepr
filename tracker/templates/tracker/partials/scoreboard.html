@@ -1,21 +1,15 @@
 <section id="scoreboard" class="scoreboard-shell" aria-live="polite"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
-  <div class="scoreboard{% if not is_future_fixture %} has-feed{% endif %}{% if is_future_fixture %} scoreboard-fixture{% endif %}">
+  <div class="scoreboard{% if show_score %} has-feed{% else %} scoreboard-fixture{% endif %}">
     <div class="side-panel">
       <span class="venue">Home</span>
-      <h2>
-        {% if can_modify and not match.is_home %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %}
-      </h2>
-      {% if not is_future_fixture %}<strong class="score">{{ home_score }}</strong>{% endif %}
-      {% if can_modify and not is_future_fixture %}
+      <h2>{% if can_modify %}<a href="{% url 'team-edit' match.home_team_id %}#team-{{ match.home_team_id }}">{{ home_name }}</a>{% else %}{{ home_name }}{% endif %}</h2>
+      {% if show_score %}<strong class="score">{{ home_score }}</strong>{% endif %}
+      {% if can_score %}
         <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'home' %}" hx-post="{% url 'score-goal' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML">
           {% csrf_token %}
           <div class="scorer-slot">
-            {% if household_side == 'home' %}
-              <label for="scorer-home">Scorer <small>(optional)</small></label>
-              <input id="scorer-home" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
-            {% else %}
-              <div class="scorer-placeholder" aria-hidden="true"><span>Scorer</span><span></span></div>
-            {% endif %}
+            <label for="scorer-home">Scorer <small>(optional)</small></label>
+            <input id="scorer-home" name="scorer_name" list="home-players" autocomplete="off" placeholder="Player name">
           </div>
           <button class="goal-button" type="submit" aria-label="Record goal for {{ home_name }}">+ Goal</button>
         </form>
@@ -25,23 +19,17 @@
         </form>
       {% endif %}
     </div>
-    <span class="score-divider">{% if is_future_fixture %}v{% else %}:{% endif %}</span>
+    <span class="score-divider">{% if show_score %}:{% else %}v{% endif %}</span>
     <div class="side-panel">
       <span class="venue">Away</span>
-      <h2>
-        {% if can_modify and match.is_home %}<a href="{% url 'team-edit' match.opponent_id %}#team-{{ match.opponent_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}
-      </h2>
-      {% if not is_future_fixture %}<strong class="score">{{ away_score }}</strong>{% endif %}
-      {% if can_modify and not is_future_fixture %}
+      <h2>{% if can_modify %}<a href="{% url 'team-edit' match.away_team_id %}#team-{{ match.away_team_id }}">{{ away_name }}</a>{% else %}{{ away_name }}{% endif %}</h2>
+      {% if show_score %}<strong class="score">{{ away_score }}</strong>{% endif %}
+      {% if can_score %}
         <form class="goal-form" method="post" action="{% url 'score-goal' match.pk 'away' %}" hx-post="{% url 'score-goal' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML">
           {% csrf_token %}
           <div class="scorer-slot">
-            {% if household_side == 'away' %}
-              <label for="scorer-away">Scorer <small>(optional)</small></label>
-              <input id="scorer-away" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
-            {% else %}
-              <div class="scorer-placeholder" aria-hidden="true"><span>Scorer</span><span></span></div>
-            {% endif %}
+            <label for="scorer-away">Scorer <small>(optional)</small></label>
+            <input id="scorer-away" name="scorer_name" list="away-players" autocomplete="off" placeholder="Player name">
           </div>
           <button class="goal-button" type="submit" aria-label="Record goal for {{ away_name }}">+ Goal</button>
         </form>
@@ -51,16 +39,11 @@
         </form>
       {% endif %}
     </div>
-    {% if is_future_fixture %}
-      <p class="fixture-notice">Score entry becomes available on {{ match.match_date|date:"j F Y" }}.</p>
-    {% endif %}
+    {% if not show_score %}<p class="fixture-notice">{{ match.get_status_display }}</p>{% endif %}
   </div>
-  {% if not is_future_fixture %}
+  {% if show_score %}
     <section class="goal-history">
-      <div class="feed-heading">
-        <span class="feed-dot"></span>
-        <h2>Goal history</h2>
-      </div>
+      <div class="feed-heading"><span class="feed-dot"></span><h2>Goal history</h2></div>
       {% if events %}
         <ol>
           {% for event in events %}
@@ -68,11 +51,9 @@
               <span class="goal-marker" aria-hidden="true"></span>
               <span class="goal-summary">
                 <small>{% if event.side == 'home' %}{{ home_name }}{% else %}{{ away_name }}{% endif %}</small>
-                {% if event.scorer %}
-                  {% if can_modify %}<a href="{% url 'player-list' %}#player-{{ event.scorer_id }}">by {{ event.scorer.name }}</a>{% else %}<strong>by {{ event.scorer.name }}</strong>{% endif %}
-                {% endif %}
+                {% if event.scorer %}{% if can_modify %}<a href="{% url 'player-list' %}#player-{{ event.scorer_id }}">by {{ event.scorer.name }}</a>{% else %}<strong>by {{ event.scorer.name }}</strong>{% endif %}{% endif %}
               </span>
-              <time datetime="{{ event.recorded_at|date:'c' }}">{{ event.recorded_at|date:"H:i:s" }}</time>
+              {% if event.occurred_at %}<time datetime="{{ event.occurred_at|date:'c' }}">{{ event.occurred_at|date:"H:i:s" }}</time>{% endif %}
             </li>
           {% endfor %}
         </ol>
@@ -81,9 +62,15 @@
       {% endif %}
     </section>
   {% endif %}
-  {% if can_modify and not is_future_fixture %}
-    <datalist id="household-players">
-      {% for name in player_names %}<option value="{{ name }}"></option>{% endfor %}
-    </datalist>
+  {% if can_score %}
+    <datalist id="home-players">{% for name in home_player_names %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+    <datalist id="away-players">{% for name in away_player_names %}<option value="{{ name }}"></option>{% endfor %}</datalist>
+  {% endif %}
+  {% if can_modify %}
+    <div class="match-status-actions">
+      {% if match.status != 'live' %}<form method="post" action="{% url 'match-set-status' match.pk 'live' %}">{% csrf_token %}<button type="submit">Start match</button></form>{% endif %}
+      {% if match.status != 'finished' %}<form method="post" action="{% url 'match-set-status' match.pk 'finished' %}">{% csrf_token %}<button type="submit">Finish match</button></form>{% endif %}
+      {% if match.status != 'cancelled' %}<form method="post" action="{% url 'match-set-status' match.pk 'cancelled' %}">{% csrf_token %}<button type="submit" class="secondary">Cancel match</button></form>{% endif %}
+    </div>
   {% endif %}
 </section>

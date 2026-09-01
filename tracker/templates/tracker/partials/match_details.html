@@ -1,15 +1,20 @@
 <section id="match-details" class="match-details">
   <h2>Match details</h2>
   <div class="match-detail-list">
-    {% if editing_field == "opponent" %}
-      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="opponent" field_label="Opponent" %}
+    {% if editing_field == "home-team" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="home-team" field_label="Home team" %}
     {% else %}
-      {% include "tracker/partials/match_detail_row.html" with field_name="opponent" field_label="Opponent" %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="home-team" field_label="Home team" %}
     {% endif %}
-    {% if editing_field == "venue" %}
-      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="venue" field_label="Venue" %}
+    {% if editing_field == "away-team" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="away-team" field_label="Away team" %}
     {% else %}
-      {% include "tracker/partials/match_detail_row.html" with field_name="venue" field_label="Venue" %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="away-team" field_label="Away team" %}
+    {% endif %}
+    {% if editing_field == "status" %}
+      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="status" field_label="Status" %}
+    {% else %}
+      {% include "tracker/partials/match_detail_row.html" with field_name="status" field_label="Status" %}
     {% endif %}
     {% if editing_field == "date" %}
       {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="date" field_label="Date" %}
