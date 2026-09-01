@@ -1,6 +1,5 @@
 import typing
 
-from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Lower
@@ -116,36 +115,6 @@ class TeamMembership(models.Model):
         return f"{self.player} in {self.team}"
 
 
-class UserPreference(models.Model):
-    user = models.OneToOneField(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="goalkeepr_preference",
-    )
-    default_team = models.ForeignKey(
-        Team,
-        on_delete=models.SET_NULL,
-        related_name="user_preferences",
-        null=True,
-        blank=True,
-    )
-
-    def __str__(self) -> str:
-        return f"Preferences for {self.user}"
-
-    def clean(self) -> None:
-        super().clean()
-        default_team = self.default_team
-        if (
-            default_team is not None
-            and default_team.club.name.casefold()
-            != settings.PRIMARY_CLUB_NAME.casefold()
-        ):
-            raise ValidationError(
-                {"default_team": "The default team must belong to the primary club."}
-            )
-
-
 class Match(models.Model):
     class Status(models.TextChoices):
         SCHEDULED = "scheduled", gettext_lazy("Scheduled")
@@ -194,6 +163,12 @@ class Match(models.Model):
         super().clean()
         if self.home_team_id == self.away_team_id:
             raise ValidationError("Home and away teams must differ.")
+        if (
+            self.home_team_id is not None
+            and self.away_team_id is not None
+            and self.home_team.season_id != self.away_team.season_id
+        ):
+            raise ValidationError("Home and away teams must belong to the same season.")
 
 
 class ScoreEvent(models.Model):

@@ -1,7 +1,6 @@
 import typing
 
 from django import forms
-from django.conf import settings
 from django.utils import timezone
 
 import tracker.models
@@ -20,7 +19,6 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
         self,
         *args: typing.Any,
         editable_field: str | None = None,
-        default_team: tracker.models.Team | None = None,
         **kwargs: typing.Any,
     ) -> None:
         super().__init__(*args, **kwargs)
@@ -34,7 +32,6 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
         self.fields["notes"].required = False
         if not self.is_bound and self.instance.pk is None:
             self.fields["match_date"].initial = timezone.localdate()
-            self.fields["home_team"].initial = default_team
         if editable_field is not None:
             self.fields = {editable_field: self.fields[editable_field]}
 
@@ -64,6 +61,7 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)
+        self.fields["age_group"].widget.attrs["list"] = "age-groups"
         if not self.is_bound and self.instance.pk:
             self.fields["club_name"].initial = self.instance.club.name
 
@@ -83,20 +81,3 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
             team.club.save(update_fields=["name"])
             team.save()
         return team
-
-
-class UserPreferenceForm(forms.ModelForm[tracker.models.UserPreference]):
-    class Meta:
-        model = tracker.models.UserPreference
-        fields = ["default_team"]
-
-    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
-        super().__init__(*args, **kwargs)
-        typing.cast(
-            forms.ModelChoiceField[tracker.models.Team],
-            self.fields["default_team"],
-        ).queryset = (
-            tracker.models.Team.objects.select_related("club", "season")
-            .filter(club__name__iexact=settings.PRIMARY_CLUB_NAME)
-            .order_by("-season__start_date", "age_group", "designation")
-        )

@@ -9,7 +9,6 @@ admin.site.register(
         tracker.models.Season,
         tracker.models.Player,
         tracker.models.TeamMembership,
-        tracker.models.UserPreference,
         tracker.models.Match,
         tracker.models.ScoreEvent,
     ]

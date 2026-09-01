@@ -4,7 +4,6 @@ from asgiref.sync import sync_to_async
 from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Q, QuerySet, Value, When
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
@@ -93,9 +92,27 @@ async def _player_names(team: tracker.models.Team) -> list[str]:
 
 
 async def _team_choices() -> list[tuple[int, str]]:
+    today = timezone.localdate()
     return [
-        (team.pk, str(team))
+        (team.pk, f"{team} ({team.season})")
         async for team in tracker.models.Team.objects.select_related("club", "season")
+        .alias(
+            current_season_order=Case(
+                When(
+                    season__start_date__lte=today,
+                    season__end_date__gte=today,
+                    then=Value(0),
+                ),
+                default=Value(1),
+            )
+        )
+        .order_by(
+            "current_season_order",
+            "-season__start_date",
+            "club__name",
+            "age_group",
+            "designation",
+        )
     ]
 
 
@@ -106,18 +123,13 @@ async def _set_team_choices(form: tracker.forms.MatchForm) -> None:
             typing.cast(forms.ChoiceField, form.fields[field_name]).choices = choices
 
 
-async def _default_team(user: User) -> tracker.models.Team | None:
-    try:
-        preference = await tracker.models.UserPreference.objects.select_related(
-            "default_team__club", "default_team__season"
-        ).aget(user=user)
-    except tracker.models.UserPreference.DoesNotExist:
-        return (
-            await tracker.models.Team.objects.select_related("club", "season")
-            .filter(club__name__iexact=settings.PRIMARY_CLUB_NAME)
-            .afirst()
-        )
-    return preference.default_team
+async def _age_groups() -> list[str]:
+    return [
+        age_group
+        async for age_group in tracker.models.Team.objects.order_by("age_group")
+        .values_list("age_group", flat=True)
+        .distinct()
+    ]
 
 
 async def _players_with_goal_counts() -> list[tracker.models.Player]:
@@ -329,7 +341,7 @@ async def team_edit(request: HttpRequest, pk: int) -> HttpResponse:
         return render(
             request,
             "tracker/partials/team_edit_row.html",
-            {"result": result, "form": form},
+            {"result": result, "form": form, "age_groups": await _age_groups()},
         )
     return render(
         request,
@@ -338,6 +350,7 @@ async def team_edit(request: HttpRequest, pk: int) -> HttpResponse:
             "teams": await _teams_with_results(),
             "edit_form": form,
             "editing_team_id": team.pk,
+            "age_groups": await _age_groups(),
         },
         status=400 if form.is_bound else 200,
     )
@@ -360,36 +373,9 @@ async def team_delete(request: HttpRequest, pk: int) -> HttpResponse:
 
 
 @login_required
-async def preferences(request: HttpRequest) -> HttpResponse:
-    user = typing.cast(User, await request.auser())
-    request.user = user
-    preference, _ = await tracker.models.UserPreference.objects.aget_or_create(
-        user=user
-    )
-    form = tracker.forms.UserPreferenceForm(request.POST or None, instance=preference)
-    if request.method == "POST" and await _form_is_valid(form):
-        await sync_to_async(form.save)()
-        return redirect("preferences")
-    choices: list[tuple[typing.Any, str]] = [("", "---------")]
-    choices.extend(
-        [
-            (team.pk, str(team))
-            async for team in tracker.models.Team.objects.select_related(
-                "club", "season"
-            ).filter(club__name__iexact=settings.PRIMARY_CLUB_NAME)
-        ]
-    )
-    typing.cast(forms.ChoiceField, form.fields["default_team"]).choices = choices
-    return render(request, "tracker/preferences.html", {"form": form})
-
-
-@login_required
 async def match_create(request: HttpRequest) -> HttpResponse:
-    user = typing.cast(User, await request.auser())
-    request.user = user
-    form = tracker.forms.MatchForm(
-        request.POST or None, default_team=await _default_team(user)
-    )
+    request.user = await request.auser()
+    form = tracker.forms.MatchForm(request.POST or None)
     await _set_team_choices(form)
     if request.method == "POST" and await _form_is_valid(form):
         match = await sync_to_async(_save_match_form)(form)

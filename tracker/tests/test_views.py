@@ -236,18 +236,18 @@ def test_recording_scorer_creates_team_membership(
 
 
 @pytest.mark.django_db
-def test_match_creation_prefills_user_default_team(
+def test_match_creation_leaves_both_teams_unselected(
     client: Client,
     user: User,
     primary_team: tracker.models.Team,
 ) -> None:
-    tracker.models.UserPreference.objects.create(user=user, default_team=primary_team)
     client.force_login(user)
 
     response = client.get(reverse("match-create"))
 
     assert response.status_code == 200
-    assert int(response.context["form"]["home_team"].value()) == primary_team.pk
+    assert response.context["form"]["home_team"].value() is None
+    assert response.context["form"]["away_team"].value() is None
     assert response.context["form"]["status"].value() == "scheduled"
 
 
@@ -278,20 +278,51 @@ def test_match_creation_persists_explicit_participants(
 
 
 @pytest.mark.django_db
-def test_user_can_change_default_team(
+def test_match_team_choices_prioritize_current_season(
     client: Client,
     user: User,
     primary_team: tracker.models.Team,
 ) -> None:
+    previous_season = tracker.models.Season.objects.create(
+        name="2025-2026",
+        start_date=date(2025, 7, 1),
+        end_date=date(2026, 6, 30),
+    )
+    previous_team = tracker.models.Team.objects.create(
+        club=primary_team.club,
+        season=previous_season,
+        age_group="U10",
+    )
     client.force_login(user)
 
-    response = client.post(reverse("preferences"), {"default_team": primary_team.pk})
+    response = client.get(reverse("match-create"))
+    choices = list(response.context["form"].fields["home_team"].choices)
 
-    assert response.status_code == 302
-    assert (
-        tracker.models.UserPreference.objects.get(user=user).default_team
-        == primary_team
+    assert choices.index(
+        (primary_team.pk, f"{primary_team} ({primary_team.season})")
+    ) < choices.index((previous_team.pk, f"{previous_team} ({previous_team.season})"))
+
+
+@pytest.mark.django_db
+def test_team_age_group_field_offers_existing_values(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    opponent_team.age_group = "U10"
+    opponent_team.save(update_fields=["age_group"])
+    client.force_login(user)
+
+    response = client.get(
+        reverse("team-edit", args=[primary_team.pk]),
+        HTTP_HX_REQUEST="true",
     )
+
+    assert response.status_code == 200
+    assert 'list="age-groups"' in response.text
+    assert '<option value="U10">' in response.text
+    assert '<option value="U11">' in response.text
 
 
 @pytest.mark.django_db
