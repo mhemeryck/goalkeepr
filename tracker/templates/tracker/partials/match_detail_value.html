@@ -1,10 +1,12 @@
 <span class="match-detail-value">
-  {% if field_name == "opponent" %}
-    {{ match.opponent.name }}
-  {% elif field_name == "venue" %}
-    {% if match.is_home %}Home{% else %}Away{% endif %}
+  {% if field_name == "home-team" %}
+    {{ match.home_team }}
+  {% elif field_name == "away-team" %}
+    {{ match.away_team }}
   {% elif field_name == "date" %}
     {{ match.match_date|date:"j F Y" }}
+  {% elif field_name == "status" %}
+    {{ match.get_status_display }}
   {% elif match.notes %}
     {{ match.notes|linebreaksbr }}
   {% else %}

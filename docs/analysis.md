@@ -1,5 +1,7 @@
 # Goalkeepr Analysis
 
+The evolving match-domain design is documented in [Match Domain](match-domain.md).
+
 ## Background
 
 - [x] Youth football score recording for one household team

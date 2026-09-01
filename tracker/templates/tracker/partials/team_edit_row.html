@@ -1,14 +1,15 @@
 <article id="team-{{ result.team.pk }}" class="team-row team-row-editing">
   <form class="inline-team-form" method="post" action="{% url 'team-edit' result.team.pk %}" hx-post="{% url 'team-edit' result.team.pk %}" hx-target="#team-{{ result.team.pk }}" hx-swap="outerHTML">
     {% csrf_token %}
-    <label class="visually-hidden" for="team-name-{{ result.team.pk }}">Team name</label>
-    <input id="team-name-{{ result.team.pk }}" name="name" value="{{ form.name.value }}" maxlength="100" required autofocus>
+    {{ form.as_p }}
+    <datalist id="age-groups">
+      {% for age_group in age_groups %}<option value="{{ age_group }}"></option>{% endfor %}
+    </datalist>
     <button type="submit">Save</button>
-    {{ form.name.errors }}
     {{ form.non_field_errors }}
   </form>
   <form class="team-delete" method="post" action="{% url 'team-delete' result.team.pk %}" onsubmit="return confirm('Delete this team?')">
     {% csrf_token %}
-    <button class="delete-team-button" type="submit" aria-label="Delete {{ result.team.name }}" title="{% if result.match_count %}Delete matches first{% else %}Delete {{ result.team.name }}{% endif %}" {% if result.match_count %}disabled{% endif %}>&times;</button>
+    <button class="delete-team-button" type="submit" aria-label="Delete {{ result.team }}" title="{% if result.match_count %}Delete matches first{% else %}Delete {{ result.team }}{% endif %}" {% if result.match_count %}disabled{% endif %}>&times;</button>
   </form>
 </article>

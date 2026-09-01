@@ -2,17 +2,17 @@
   <a id="match-link-{{ match.pk }}" class="match-card-link" href="{% url 'match-detail' match.pk %}">
     <div>
       <span class="match-date">{{ match.match_date|date:"D j M Y" }}</span>
-      <strong>{% if match.is_home %}{{ TEAM_NAME }}{% else %}{{ match.opponent.name }}{% endif %}</strong>
-      <strong>{% if match.is_home %}{{ match.opponent.name }}{% else %}{{ TEAM_NAME }}{% endif %}</strong>
+      <strong>{{ match.home_team }}</strong>
+      <strong>{{ match.away_team }}</strong>
     </div>
-    {% if match.match_date > today %}
-      <span class="fixture-badge">Fixture</span>
-    {% else %}
+    {% if match.status == "finished" %}
       <div class="compact-score" aria-label="Score {{ match.home_score_value }} to {{ match.away_score_value }}">
         <strong>{{ match.home_score_value }}</strong>
         <span>–</span>
         <strong>{{ match.away_score_value }}</strong>
       </div>
+    {% else %}
+      <span class="fixture-badge">{{ match.get_status_display }}</span>
     {% endif %}
   </a>
 </article>

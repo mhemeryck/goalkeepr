@@ -21,7 +21,10 @@ CSRF_TRUSTED_ORIGINS = [
     for origin in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
     if origin.strip()
 ]
-TEAM_NAME = env.str("TEAM_NAME", default="K.F.C. Sparta Kolmont")
+PRIMARY_CLUB_NAME = env.str(
+    "PRIMARY_CLUB_NAME",
+    default="K.F.C. Sparta Kolmont",
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -55,7 +58,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "tracker.context_processors.team_name",
+                "tracker.context_processors.primary_club_name",
             ],
         },
     }
