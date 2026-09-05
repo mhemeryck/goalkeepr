@@ -13,6 +13,9 @@ jobs:
   quality:
     name: Quality
     runs-on: ubuntu-latest
+    env:
+      SECRETSPEC_PROVIDER: env
+      BILLING_ALERT_EMAIL: ci@example.invalid
     concurrency:
       group: quality-${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
