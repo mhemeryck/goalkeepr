@@ -52,7 +52,7 @@ in
   scripts = {
     tests.exec = "uv run pytest";
     lint.exec = "ruff check .";
-    format.exec = "ruff format .";
+    format_code.exec = "ruff format .";
     typecheck.exec = "uv run mypy .";
     manage.exec = ''
       ${postgresEnvCommand} uv run python manage.py "$@"
