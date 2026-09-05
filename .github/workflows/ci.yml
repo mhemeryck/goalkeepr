@@ -33,6 +33,42 @@ jobs:
       - name: Run quality checks
         run: devenv test
 
+  terraform-plan:
+    name: Terraform plan
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      SECRETSPEC_PROVIDER: env
+      BILLING_ALERT_EMAIL: ${{ vars.BILLING_ALERT_EMAIL }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+      - name: Configure devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv
+        run: nix profile add nixpkgs#devenv
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: eu-central-1
+          role-to-assume: arn:aws:iam::109185239364:role/home-github-actions
+      - name: Configure Kubernetes access
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
+        run: |
+          umask 077
+          printf '%s' "${KUBECONFIG_CONTENT}" > "${RUNNER_TEMP}/kubeconfig"
+          printf 'TF_VAR_kubeconfig_path=%s\n' "${RUNNER_TEMP}/kubeconfig" >> "${GITHUB_ENV}"
+      - name: Plan Terraform
+        run: devenv shell terraform_plan
+
   release:
     name: Release
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
