@@ -57,7 +57,7 @@ in
     manage.exec = ''
       ${postgresEnvCommand} uv run python manage.py "$@"
     '';
-    deploy = {
+    terraform_plan = {
       package = pkgs.nushell;
       binary = "nu";
       packages = [ pkgs.terraform ];
@@ -66,8 +66,17 @@ in
         terraform init
         terraform fmt -check
         terraform validate
-        terraform plan -out=tfplan
-        terraform apply -auto-approve tfplan
+        terraform plan
+      '';
+    };
+    deploy = {
+      package = pkgs.nushell;
+      binary = "nu";
+      packages = [ pkgs.terraform ];
+      exec = ''
+        cd infra/envs/mhemeryck/goalkeepr
+        terraform init
+        terraform apply -auto-approve
       '';
     };
   };
