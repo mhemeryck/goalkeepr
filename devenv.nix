@@ -25,11 +25,12 @@ in
     };
   };
 
-  packages = with pkgs; [
-    nushell
-    ruff
-    terraform
-  ];
+  packages =
+    [ pkgs.ruff ]
+    ++ lib.optionals (!config.devenv.isTesting) [
+      pkgs.nushell
+      pkgs.terraform
+    ];
 
   env = {
     AWS_PROFILE = "mhemeryck";
