@@ -50,7 +50,7 @@ in
   };
 
   scripts = {
-    test.exec = "uv run pytest";
+    tests.exec = "uv run pytest";
     lint.exec = "ruff check .";
     format.exec = "ruff format .";
     typecheck.exec = "uv run mypy .";
@@ -73,9 +73,9 @@ in
 
   enterTest = ''
     uv run python manage.py collectstatic --noinput
-    uv run pytest
-    ruff check .
-    uv run mypy .
+    tests
+    lint
+    typecheck
   '';
 
   tasks = {
