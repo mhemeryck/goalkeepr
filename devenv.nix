@@ -5,6 +5,7 @@
   ...
 }:
 let
+  isCI = builtins.getEnv "CI" == "true";
   postgresEnv = {
     POSTGRES_DB = "goalkeepr";
     POSTGRES_HOST = "127.0.0.1";
@@ -25,19 +26,16 @@ in
     };
   };
 
-  packages = with pkgs; [
-    nushell
-    ruff
-    terraform
-  ];
+  packages = [ pkgs.ruff ];
 
   env = {
-    AWS_PROFILE = "mhemeryck";
     TF_VAR_billing_alert_email = config.secretspec.secrets.BILLING_ALERT_EMAIL;
+  } // lib.optionalAttrs (!isCI) {
+    AWS_PROFILE = "mhemeryck";
   };
 
   services.postgres = {
-    enable = true;
+    enable = !config.devenv.isTesting;
     package = pkgs.postgresql_18;
     listen_addresses = postgresEnv.POSTGRES_HOST;
     port = 5432;
@@ -52,14 +50,43 @@ in
   };
 
   scripts = {
-    test.exec = "uv run pytest";
+    tests.exec = "uv run pytest";
     lint.exec = "ruff check .";
-    format.exec = "ruff format .";
+    format_code.exec = "ruff format .";
     typecheck.exec = "uv run mypy .";
     manage.exec = ''
       ${postgresEnvCommand} uv run python manage.py "$@"
     '';
+    terraform_plan = {
+      package = pkgs.nushell;
+      binary = "nu";
+      packages = [ pkgs.terraform ];
+      exec = ''
+        cd infra/envs/mhemeryck/goalkeepr
+        terraform init
+        terraform fmt -check
+        terraform validate
+        terraform plan
+      '';
+    };
+    deploy = {
+      package = pkgs.nushell;
+      binary = "nu";
+      packages = [ pkgs.terraform ];
+      exec = ''
+        cd infra/envs/mhemeryck/goalkeepr
+        terraform init
+        terraform apply -auto-approve
+      '';
+    };
   };
+
+  enterTest = ''
+    uv run python manage.py collectstatic --noinput
+    tests
+    lint
+    typecheck
+  '';
 
   tasks = {
     "db:migrate" = {
@@ -68,14 +95,14 @@ in
     };
   };
 
-  processes.server = {
-    exec = "uv run uvicorn goalkeepr.asgi:application --reload";
-    env = postgresEnv;
-    start.enable = false;
-    after = [
-      "devenv:processes:postgres"
-      "db:migrate"
-    ];
+  processes = lib.optionalAttrs (!config.devenv.isTesting) {
+    server = {
+      exec = "uv run uvicorn goalkeepr.asgi:application --reload";
+      env = postgresEnv;
+      after = [
+        "devenv:processes:postgres"
+        "db:migrate"
+      ];
+    };
   };
-
 }
