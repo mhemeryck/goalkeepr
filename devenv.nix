@@ -37,7 +37,7 @@ in
   };
 
   services.postgres = {
-    enable = true;
+    enable = !config.devenv.isTesting;
     package = pkgs.postgresql_18;
     listen_addresses = postgresEnv.POSTGRES_HOST;
     port = 5432;
@@ -75,14 +75,15 @@ in
     };
   };
 
-  processes.server = {
-    exec = "uv run uvicorn goalkeepr.asgi:application --reload";
-    env = postgresEnv;
-    start.enable = false;
-    after = [
-      "devenv:processes:postgres"
-      "db:migrate"
-    ];
+  processes = lib.optionalAttrs (!config.devenv.isTesting) {
+    server = {
+      exec = "uv run uvicorn goalkeepr.asgi:application --reload";
+      env = postgresEnv;
+      start.enable = false;
+      after = [
+        "devenv:processes:postgres"
+        "db:migrate"
+      ];
+    };
   };
-
 }
