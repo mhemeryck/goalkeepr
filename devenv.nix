@@ -62,11 +62,12 @@ in
       binary = "nu";
       packages = [ pkgs.terraform ];
       exec = ''
-        terraform -chdir=infra/envs/mhemeryck/goalkeepr init
-        terraform -chdir=infra/envs/mhemeryck/goalkeepr fmt -check
-        terraform -chdir=infra/envs/mhemeryck/goalkeepr validate
-        terraform -chdir=infra/envs/mhemeryck/goalkeepr plan -out=tfplan
-        terraform -chdir=infra/envs/mhemeryck/goalkeepr apply -auto-approve tfplan
+        cd infra/envs/mhemeryck/goalkeepr
+        terraform init
+        terraform fmt -check
+        terraform validate
+        terraform plan -out=tfplan
+        terraform apply -auto-approve tfplan
       '';
     };
   };
