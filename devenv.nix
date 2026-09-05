@@ -63,9 +63,9 @@ in
 
   enterTest = ''
     uv run python manage.py collectstatic --noinput
-    test
-    lint
-    typecheck
+    uv run pytest
+    ruff check .
+    uv run mypy .
   '';
 
   tasks = {
