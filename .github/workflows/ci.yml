@@ -30,14 +30,8 @@ jobs:
           name: devenv
       - name: Install devenv
         run: nix profile add nixpkgs#devenv
-      - name: Collect static assets
-        run: devenv shell -- uv run python manage.py collectstatic --noinput
-      - name: Run tests
-        run: devenv shell test
-      - name: Run linting
-        run: devenv shell lint
-      - name: Run type checks
-        run: devenv shell typecheck
+      - name: Run quality checks
+        run: devenv test
 
   release:
     name: Release
