@@ -89,7 +89,6 @@ in
     server = {
       exec = "uv run uvicorn goalkeepr.asgi:application --reload";
       env = postgresEnv;
-      start.enable = false;
       after = [
         "devenv:processes:postgres"
         "db:migrate"
