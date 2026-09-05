@@ -61,6 +61,13 @@ in
     '';
   };
 
+  enterTest = ''
+    uv run python manage.py collectstatic --noinput
+    test
+    lint
+    typecheck
+  '';
+
   tasks = {
     "db:migrate" = {
       exec = "uv run python manage.py migrate";
