@@ -25,12 +25,7 @@ in
     };
   };
 
-  packages =
-    [ pkgs.ruff ]
-    ++ lib.optionals (!config.devenv.isTesting) [
-      pkgs.nushell
-      pkgs.terraform
-    ];
+  packages = [ pkgs.ruff ];
 
   env = {
     AWS_PROFILE = "mhemeryck";
@@ -60,6 +55,18 @@ in
     manage.exec = ''
       ${postgresEnvCommand} uv run python manage.py "$@"
     '';
+    deploy = {
+      package = pkgs.nushell;
+      binary = "nu";
+      packages = [ pkgs.terraform ];
+      exec = ''
+        terraform -chdir=infra/envs/mhemeryck/goalkeepr init
+        terraform -chdir=infra/envs/mhemeryck/goalkeepr fmt -check
+        terraform -chdir=infra/envs/mhemeryck/goalkeepr validate
+        terraform -chdir=infra/envs/mhemeryck/goalkeepr plan -out=tfplan
+        terraform -chdir=infra/envs/mhemeryck/goalkeepr apply -auto-approve tfplan
+      '';
+    };
   };
 
   enterTest = ''
