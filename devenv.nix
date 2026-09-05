@@ -5,6 +5,7 @@
   ...
 }:
 let
+  isCI = builtins.getEnv "CI" == "true";
   postgresEnv = {
     POSTGRES_DB = "goalkeepr";
     POSTGRES_HOST = "127.0.0.1";
@@ -28,8 +29,9 @@ in
   packages = [ pkgs.ruff ];
 
   env = {
-    AWS_PROFILE = "mhemeryck";
     TF_VAR_billing_alert_email = config.secretspec.secrets.BILLING_ALERT_EMAIL;
+  } // lib.optionalAttrs (!isCI) {
+    AWS_PROFILE = "mhemeryck";
   };
 
   services.postgres = {
