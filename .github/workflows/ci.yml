@@ -94,14 +94,24 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    env:
+      SECRETSPEC_PROVIDER: env
+      BILLING_ALERT_EMAIL: ${{ vars.BILLING_ALERT_EMAIL }}
+      TF_VAR_image: mhemeryck/goalkeepr:${{ needs.release.outputs.version }}
     concurrency:
       group: terraform-apply
       cancel-in-progress: false
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v4
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+      - name: Configure devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+      - name: Install devenv
+        run: nix profile add nixpkgs#devenv
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v6
         with:
@@ -113,14 +123,6 @@ jobs:
         run: |
           umask 077
           printf '%s' "${KUBECONFIG_CONTENT}" > "${RUNNER_TEMP}/kubeconfig"
-          printf 'KUBECONFIG=%s\n' "${RUNNER_TEMP}/kubeconfig" >> "${GITHUB_ENV}"
+          printf 'TF_VAR_kubeconfig_path=%s\n' "${RUNNER_TEMP}/kubeconfig" >> "${GITHUB_ENV}"
       - name: Apply Terraform
-        working-directory: infra/envs/mhemeryck/goalkeepr
-        env:
-          TF_VAR_billing_alert_email: ${{ vars.BILLING_ALERT_EMAIL }}
-        run: |
-          terraform init
-          terraform fmt -check
-          terraform validate
-          terraform plan -out=tfplan -var "image=mhemeryck/goalkeepr:${{ needs.release.outputs.version }}" -var "kubeconfig_path=${KUBECONFIG}"
-          terraform apply -auto-approve tfplan
+        run: devenv shell deploy
