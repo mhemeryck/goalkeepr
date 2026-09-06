@@ -57,6 +57,7 @@ in
     manage.exec = ''
       ${postgresEnvCommand} uv run python manage.py "$@"
     '';
+  } // lib.optionalAttrs (!config.devenv.isTesting) {
     terraform_plan = {
       package = pkgs.nushell;
       binary = "nu";
