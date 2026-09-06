@@ -38,19 +38,16 @@ locals {
     "goalkeepr.app",
   ]
 
-  image = var.image != null ? var.image : data.kubernetes_resource.goalkeepr[0].object.spec.template.spec.containers[0].image
+  image = var.image != null ? var.image : data.kubernetes_resources.goalkeepr[0].objects[0].spec.template.spec.containers[0].image
 }
 
-data "kubernetes_resource" "goalkeepr" {
+data "kubernetes_resources" "goalkeepr" {
   count = var.image == null ? 1 : 0
 
-  api_version = "apps/v1"
-  kind        = "Deployment"
-
-  metadata {
-    name      = "goalkeepr"
-    namespace = "goalkeepr"
-  }
+  api_version    = "apps/v1"
+  field_selector = "metadata.name=goalkeepr"
+  kind           = "Deployment"
+  namespace      = "goalkeepr"
 }
 
 module "goalkeepr" {
