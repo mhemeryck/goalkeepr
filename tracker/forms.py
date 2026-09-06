@@ -57,7 +57,7 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
 
     class Meta:
         model = tracker.models.Team
-        fields = ["age_group", "designation"]
+        fields = ["age_group"]
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)

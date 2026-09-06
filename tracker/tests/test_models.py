@@ -81,6 +81,12 @@ def test_club_names_are_unique_case_insensitively() -> None:
         tracker.models.Club.objects.create(name="united")
 
 
+def test_team_has_no_designation_field() -> None:
+    assert "designation" not in {
+        field.name for field in tracker.models.Team._meta.get_fields()
+    }
+
+
 @pytest.mark.django_db
 def test_team_identity_is_unique_within_club_and_season() -> None:
     team = make_team()
@@ -90,7 +96,6 @@ def test_team_identity_is_unique_within_club_and_season() -> None:
             club=team.club,
             season=team.season,
             age_group=team.age_group,
-            designation="",
         )
 
 

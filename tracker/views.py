@@ -111,7 +111,6 @@ async def _team_choices() -> list[tuple[int, str]]:
             "-season__start_date",
             "club__name",
             "age_group",
-            "designation",
         )
     ]
 

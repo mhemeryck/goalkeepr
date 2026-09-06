@@ -35,7 +35,6 @@ def expand_match_domain(apps, schema_editor):
             club=club,
             season=season,
             age_group=AGE_GROUP,
-            designation="",
         )
 
     primary_club = club_model.objects.filter(
@@ -47,7 +46,6 @@ def expand_match_domain(apps, schema_editor):
         club=primary_club,
         season=season,
         age_group=AGE_GROUP,
-        designation="",
         defaults={"name": settings.PRIMARY_CLUB_NAME},
     )
 
@@ -145,11 +143,6 @@ class Migration(migrations.Migration):
             name="age_group",
             field=models.CharField(default="", max_length=20),
             preserve_default=False,
-        ),
-        migrations.AddField(
-            model_name="team",
-            name="designation",
-            field=models.CharField(blank=True, default="", max_length=20),
         ),
         migrations.AddField(
             model_name="team",
@@ -309,7 +302,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="team",
             constraint=models.UniqueConstraint(
-                fields=("club", "season", "age_group", "designation"),
+                fields=("club", "season", "age_group"),
                 name="unique_team_identity",
             ),
         ),
@@ -322,6 +315,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AlterModelOptions(
             name="team",
-            options={"ordering": ["club__name", "age_group", "designation", "pk"]},
+            options={"ordering": ["club__name", "age_group", "pk"]},
         ),
     ]

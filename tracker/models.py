@@ -52,20 +52,18 @@ class Team(models.Model):
     club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="teams")
     season = models.ForeignKey(Season, on_delete=models.PROTECT, related_name="teams")
     age_group = models.CharField(max_length=20)
-    designation = models.CharField(max_length=20, blank=True, default="")
 
     class Meta:
-        ordering = ["club__name", "age_group", "designation", "pk"]
+        ordering = ["club__name", "age_group", "pk"]
         constraints = [
             models.UniqueConstraint(
-                fields=["club", "season", "age_group", "designation"],
+                fields=["club", "season", "age_group"],
                 name="unique_team_identity",
             )
         ]
 
     def __str__(self) -> str:
-        suffix = " ".join(part for part in (self.age_group, self.designation) if part)
-        return f"{self.club.name} {suffix}"
+        return f"{self.club.name} {self.age_group}"
 
 
 class Player(models.Model):
