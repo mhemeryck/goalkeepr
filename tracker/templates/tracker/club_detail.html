@@ -8,7 +8,12 @@
       <p class="eyebrow"><a href="{% url 'club-list' %}">Clubs</a></p>
       <h1>{{ club.name }}</h1>
     </div>
+    <div class="form-actions">
+      <a role="button" class="secondary" href="{% url 'club-edit' club.pk %}">Edit club</a>
+      {% if can_delete %}<a role="button" class="secondary" href="{% url 'club-delete' club.pk %}">Delete club</a>{% endif %}
+    </div>
   </div>
+  {% if not can_delete %}<p>This club cannot be deleted while it has teams.</p>{% endif %}
   <section>
     <h2>Teams by season</h2>
     {% regroup club.seasonal_teams by season as season_groups %}

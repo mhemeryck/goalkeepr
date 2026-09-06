@@ -114,6 +114,23 @@ def test_season_default_team_must_belong_to_that_season() -> None:
 
 
 @pytest.mark.django_db
+def test_defaults_team_must_belong_to_default_season() -> None:
+    team = make_team()
+    other_season = tracker.models.Season.objects.create(
+        name="2025-2026",
+        start_date=date(2025, 7, 1),
+        end_date=date(2026, 6, 30),
+    )
+    defaults = tracker.models.Defaults(
+        default_season=other_season,
+        default_team=team,
+    )
+
+    with pytest.raises(ValidationError, match="default team"):
+        defaults.full_clean()
+
+
+@pytest.mark.django_db
 def test_match_defaults_to_scheduled_and_requires_distinct_teams() -> None:
     team = make_team()
     match = tracker.models.Match(

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <section class="form-card">
+    <p class="eyebrow"><a href="{% url 'club-list' %}">Clubs</a></p>
+    <h1>{{ title }}</h1>
+    {% if club %}<p>Changing a club name keeps its teams connected to the same club.</p>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+      <p>
+        {{ form.name.label_tag }}
+        {{ form.name }}
+        {{ form.name.errors }}
+      </p>
+      <div class="form-actions">
+        <button type="submit">Save</button>
+        <a role="button" class="secondary" href="{% url 'club-list' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

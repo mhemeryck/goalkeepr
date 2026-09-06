@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ club.name }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <section class="form-card danger-card">
+    <p class="eyebrow">Permanent action</p>
+    <h1>Delete club?</h1>
+    <p><strong>{{ club.name }}</strong> has no teams and will be permanently removed.</p>
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-actions">
+        <button class="danger-button" type="submit">Delete club</button>
+        <a role="button" class="secondary" href="{% url 'club-detail' club.pk %}">Keep club</a>
+      </div>
+    </form>
+  </section>
+{% endblock %}

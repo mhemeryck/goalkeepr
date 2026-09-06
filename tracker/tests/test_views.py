@@ -143,6 +143,31 @@ def test_match_list_defaults_to_current_season(
 
 
 @pytest.mark.django_db
+def test_defaults_view_limits_teams_to_the_selected_season(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    other_season = tracker.models.Season.objects.create(
+        name="2025-2026",
+        start_date=date(2025, 7, 1),
+        end_date=date(2026, 6, 30),
+    )
+    other_team = tracker.models.Team.objects.create(
+        club=primary_team.club,
+        season=other_season,
+        age_group="U10",
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("defaults-edit"))
+
+    assert response.status_code == 200
+    assert f">{primary_team}</option>" in response.text
+    assert f">{other_team}</option>" not in response.text
+
+
+@pytest.mark.django_db
 def test_match_list_searches_clubs_age_groups_and_seasons(
     client: Client,
     primary_team: tracker.models.Team,
@@ -507,6 +532,52 @@ def test_team_club_edit_reassigns_team_without_renaming_shared_club(
 
 
 @pytest.mark.django_db
+def test_club_edit_renames_the_club_without_changing_its_teams(
+    client: Client,
+    user: User,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(
+        reverse("club-edit", args=[opponent_team.club_id]),
+        {"name": "United FC"},
+    )
+
+    opponent_team.refresh_from_db()
+    assert response.status_code == 302
+    assert opponent_team.club.name == "United FC"
+
+
+@pytest.mark.django_db
+def test_club_creation_and_safe_deletion(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    create_response = client.post(reverse("club-create"), {"name": "New United"})
+    club = tracker.models.Club.objects.get(name="New United")
+    delete_response = client.post(reverse("club-delete", args=[club.pk]))
+
+    assert create_response.status_code == 302
+    assert delete_response.status_code == 302
+    assert not tracker.models.Club.objects.filter(pk=club.pk).exists()
+
+
+@pytest.mark.django_db
+def test_club_with_teams_cannot_be_deleted(
+    client: Client,
+    user: User,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(reverse("club-delete", args=[opponent_team.club_id]))
+
+    assert response.status_code == 409
+    assert "has teams" in response.text
+    assert tracker.models.Club.objects.filter(pk=opponent_team.club_id).exists()
+
+
+@pytest.mark.django_db
 def test_match_creation_defaults_to_opponent_and_home_away_flow(
     client: Client,
     user: User,
@@ -522,6 +593,20 @@ def test_match_creation_defaults_to_opponent_and_home_away_flow(
     assert 'name="home_team"' not in response.text
     assert 'name="away_team"' not in response.text
     assert 'name="status"' not in response.text
+
+
+@pytest.mark.django_db
+def test_match_creation_links_to_defaults_when_not_configured(
+    client: Client,
+    user: User,
+) -> None:
+    tracker.models.Defaults.objects.all().delete()
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
+    assert response.status_code == 409
+    assert reverse("defaults-edit") in response.text
 
 
 @pytest.mark.django_db

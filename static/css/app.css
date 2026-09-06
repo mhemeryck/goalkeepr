@@ -104,6 +104,17 @@ body {
   margin-bottom: 0;
 }
 
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.form-actions > [role="button"],
+.form-actions > button {
+  margin-bottom: 0;
+}
+
 .eyebrow {
   margin-bottom: 0.2rem;
   color: var(--pitch-light);

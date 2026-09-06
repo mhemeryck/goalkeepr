@@ -23,6 +23,7 @@
               <div>
                 <a href="{% url 'club-list' %}"{% if request.resolver_match.url_name == 'club-list' %} aria-current="page"{% endif %}>Clubs</a>
                 <a href="{% url 'player-list' %}"{% if request.resolver_match.url_name == 'player-list' %} aria-current="page"{% endif %}>Players</a>
+                <a href="{% url 'defaults-edit' %}"{% if request.resolver_match.url_name == 'defaults-edit' %} aria-current="page"{% endif %}>Defaults</a>
               </div>
             </details>
             <form method="post" action="{% url 'logout' %}">

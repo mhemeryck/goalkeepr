@@ -83,6 +83,39 @@ class Team(models.Model):
         return f"{self.club.name} {self.age_group}"
 
 
+class Defaults(models.Model):
+    default_season = models.ForeignKey(
+        Season,
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    default_team = models.ForeignKey(
+        Team,
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+
+    def __str__(self) -> str:
+        return "Defaults"
+
+    def clean(self) -> None:
+        super().clean()
+        default_season = self.default_season
+        default_team = self.default_team
+        if (
+            default_season is not None
+            and default_team is not None
+            and default_team.season_id != default_season.pk
+        ):
+            raise ValidationError(
+                {"default_team": "The default team must belong to the default season."}
+            )
+
+
 class Player(models.Model):
     if typing.TYPE_CHECKING:
         memberships: models.Manager[TeamMembership]
