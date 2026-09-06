@@ -9,6 +9,7 @@ from django.db import migrations, models
 
 SEASON_NAME = "2026-2027"
 AGE_GROUP = "U11"
+MIGRATION_DATE = datetime.date(2026, 9, 1)
 
 
 def expand_match_domain(apps, schema_editor):
@@ -28,10 +29,16 @@ def expand_match_domain(apps, schema_editor):
     )
     legacy_names = {team.pk: team.name.strip() for team in team_model.objects.all()}
     for team_id, name in legacy_names.items():
-        club = club_model.objects.filter(name__iexact=name).first()
+        club_name = (
+            f"{name} (opponent)"
+            if name.casefold() == settings.PRIMARY_CLUB_NAME.casefold()
+            else name
+        )
+        club = club_model.objects.filter(name__iexact=club_name).first()
         if club is None:
-            club = club_model.objects.create(name=name)
+            club = club_model.objects.create(name=club_name)
         team_model.objects.filter(pk=team_id).update(
+            name=club_name,
             club=club,
             season=season,
             age_group=AGE_GROUP,
@@ -48,8 +55,8 @@ def expand_match_domain(apps, schema_editor):
         age_group=AGE_GROUP,
         defaults={"name": settings.PRIMARY_CLUB_NAME},
     )
+    season_model.objects.filter(pk=season.pk).update(default_team_id=primary_team.pk)
 
-    today = datetime.date.today()
     for match in match_model.objects.all():
         if match.is_home:
             home_team_id = primary_team.pk
@@ -60,7 +67,9 @@ def expand_match_domain(apps, schema_editor):
         match_model.objects.filter(pk=match.pk).update(
             home_team_id=home_team_id,
             away_team_id=away_team_id,
-            status="finished" if match.match_date <= today else "scheduled",
+            status=(
+                "finished" if match.match_date <= MIGRATION_DATE else "scheduled"
+            ),
         )
 
     membership_model.objects.bulk_create(
@@ -90,6 +99,21 @@ def restore_match_domain(apps, schema_editor):
             opponent_id=match.away_team_id if home_is_primary else match.home_team_id,
             is_home=home_is_primary,
         )
+
+
+def remove_generated_primary_team(apps, schema_editor):
+    club_model = apps.get_model("tracker", "Club")
+    season_model = apps.get_model("tracker", "Season")
+    team_model = apps.get_model("tracker", "Team")
+    primary_club = club_model.objects.filter(
+        name__iexact=settings.PRIMARY_CLUB_NAME
+    ).first()
+    if primary_club is None:
+        return
+    season_model.objects.filter(default_team__club=primary_club).update(
+        default_team=None
+    )
+    team_model.objects.filter(club=primary_club).delete()
 
 
 class Migration(migrations.Migration):
@@ -163,6 +187,21 @@ class Migration(migrations.Migration):
                 related_name="teams",
                 to="tracker.season",
             ),
+        ),
+        migrations.AddField(
+            model_name="season",
+            name="default_team",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="+",
+                to="tracker.team",
+            ),
+        ),
+        migrations.RunPython(
+            migrations.RunPython.noop,
+            remove_generated_primary_team,
         ),
         migrations.AddField(
             model_name="match",
@@ -255,7 +294,17 @@ class Migration(migrations.Migration):
             name="name",
             field=models.CharField(max_length=100, null=True),
         ),
-        migrations.RunPython(expand_match_domain, restore_match_domain),
+        migrations.AlterField(
+            model_name="match",
+            name="opponent",
+            field=models.ForeignKey(
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="matches",
+                to="tracker.team",
+            ),
+        ),
+        migrations.RunPython(expand_match_domain, migrations.RunPython.noop),
         migrations.AlterField(
             model_name="team",
             name="club",
@@ -292,6 +341,7 @@ class Migration(migrations.Migration):
                 to="tracker.team",
             ),
         ),
+        migrations.RunPython(migrations.RunPython.noop, restore_match_domain),
         migrations.RemoveField(model_name="match", name="opponent"),
         migrations.RemoveField(model_name="match", name="is_home"),
         migrations.RemoveConstraint(

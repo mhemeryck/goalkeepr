@@ -10,6 +10,7 @@
     <form method="post">
       {% csrf_token %}
       <button class="danger-button" type="submit">Delete {{ kind }}</button>
+      <a role="button" class="secondary" href="{% url 'match-detail' object.pk %}">Keep {{ kind }}</a>
     </form>
   </section>
 {% endblock %}

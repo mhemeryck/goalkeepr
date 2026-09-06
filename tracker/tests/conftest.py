@@ -34,6 +34,8 @@ def primary_team(season: tracker.models.Season) -> tracker.models.Team:
         season=season,
         age_group="U11",
     )
+    season.default_team = team
+    season.save(update_fields=["default_team"])
     return team
 
 

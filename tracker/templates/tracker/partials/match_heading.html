@@ -1,11 +1,11 @@
 <div id="match-heading" class="page-heading match-heading"{% if oob %} hx-swap-oob="outerHTML"{% endif %}>
   <div>
-    <p class="eyebrow">{{ match.match_date|date:"D j M Y" }}</p>
+    <p class="eyebrow">{{ match.match_date|date:"D j M Y" }} &middot; {{ match.get_status_display }}</p>
     <h1>{{ home_name }} v {{ away_name }}</h1>
   </div>
   {% if can_modify %}
     <div>
-      <form method="post" action="{% url 'match-swap-teams' match.pk %}">
+      <form method="post" action="{% url 'match-swap-teams' match.pk %}" onsubmit="return confirm('Swap home and away teams? Existing goals will move with their teams.')">
         {% csrf_token %}
         <button type="submit" class="secondary">Swap sides</button>
       </form>

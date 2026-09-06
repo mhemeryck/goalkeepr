@@ -27,9 +27,19 @@ class Club(models.Model):
 
 
 class Season(models.Model):
+    if typing.TYPE_CHECKING:
+        default_team_id: int | None
+
     name = models.CharField(max_length=20, unique=True)
     start_date = models.DateField()
     end_date = models.DateField()
+    default_team = models.ForeignKey(
+        "Team",
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
 
     class Meta:
         ordering = ["-start_date", "-pk"]
@@ -41,10 +51,17 @@ class Season(models.Model):
         super().clean()
         if self.end_date < self.start_date:
             raise ValidationError({"end_date": "A season must end after it starts."})
+        default_team = self.default_team
+        if default_team is not None and default_team.season_id != self.pk:
+            raise ValidationError(
+                {"default_team": "The default team must belong to this season."}
+            )
 
 
 class Team(models.Model):
     if typing.TYPE_CHECKING:
+        club_id: int
+        season_id: int
         home_matches: models.Manager[Match]
         away_matches: models.Manager[Match]
         memberships: models.Manager[TeamMembership]
@@ -69,6 +86,7 @@ class Team(models.Model):
 class Player(models.Model):
     if typing.TYPE_CHECKING:
         memberships: models.Manager[TeamMembership]
+        score_events: models.Manager[ScoreEvent]
 
     name = models.CharField(max_length=100)
     teams = models.ManyToManyField(

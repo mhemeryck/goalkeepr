@@ -7,8 +7,8 @@
     {{ form.name.errors }}
     {{ form.non_field_errors }}
   </form>
-  <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player? Their goals will remain recorded.')">
+  <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player?')">
     {% csrf_token %}
-    <button class="delete-player-button" type="submit" aria-label="Delete {{ player.name }}" title="Delete {{ player.name }}">&times;</button>
+    <button class="delete-player-button" type="submit" aria-label="Delete {{ player.name }}" title="{% if player.goal_count %}Cannot delete a player with recorded goals{% else %}Delete {{ player.name }}{% endif %}" {% if player.goal_count %}disabled{% endif %}>&times;</button>
   </form>
 </article>

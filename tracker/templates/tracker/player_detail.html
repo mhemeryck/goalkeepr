@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ player.name }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="{% url 'player-list' %}">Players</a></p>
+      <h1>{{ player.name }}</h1>
+    </div>
+    <a role="button" class="secondary" href="{% url 'player-edit' player.pk %}">Edit player</a>
+  </div>
+  <section class="detail-section">
+    <h2>Teams</h2>
+    {% if memberships %}
+      <div class="entity-grid">
+        {% for membership in memberships %}
+          <article>
+            <h3><a href="{% url 'team-detail' membership.team_id %}">{{ membership.team }}</a></h3>
+            <p>{{ membership.team.season }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No team memberships yet.</p>
+    {% endif %}
+  </section>
+  <section class="detail-section">
+    <h2>Goals</h2>
+    {% if events %}
+      <div class="entity-grid">
+        {% for event in events %}
+          <article>
+            <h3><a href="{% url 'match-detail' event.match_id %}">{{ event.match.home_team.club.name }} v {{ event.match.away_team.club.name }}</a></h3>
+            <p>{{ event.match.match_date|date:"D j M Y" }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p>No attributed goals yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

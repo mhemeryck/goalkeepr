@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}{{ club.name }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="{% url 'club-list' %}">Clubs</a></p>
+      <h1>{{ club.name }}</h1>
+    </div>
+  </div>
+  <section>
+    <h2>Teams by season</h2>
+    {% regroup club.seasonal_teams by season as season_groups %}
+    {% for season_group in season_groups %}
+      <section class="season-group">
+        <h3>{{ season_group.grouper }}</h3>
+        <div class="entity-grid">
+          {% for team in season_group.list %}
+            <article><h4><a href="{% url 'team-detail' team.pk %}">{{ team.age_group }}</a></h4></article>
+          {% endfor %}
+        </div>
+      </section>
+    {% empty %}
+      <p>No teams yet.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

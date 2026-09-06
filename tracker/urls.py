@@ -13,6 +13,11 @@ urlpatterns = [
         views.match_detail_fragment,
         name="match-detail-fragment",
     ),
+    path(
+        "matches/<int:pk>/scoreboard/",
+        views.match_scoreboard_fragment,
+        name="match-scoreboard-fragment",
+    ),
     path("matches/<int:pk>/edit/", views.match_edit, name="match-edit"),
     path(
         "matches/<int:pk>/edit/<str:field_name>/",
@@ -28,11 +33,15 @@ urlpatterns = [
     ),
     path("matches/<int:pk>/score/", views.match_score, name="match-score"),
     path("players/", views.player_list, name="player-list"),
+    path("players/<int:pk>/", views.player_detail, name="player-detail"),
     path("players/<int:pk>/edit/", views.player_edit, name="player-edit"),
     path("players/<int:pk>/delete/", views.player_delete, name="player-delete"),
     path("teams/", views.team_list, name="team-list"),
+    path("teams/<int:pk>/", views.team_detail, name="team-detail"),
     path("teams/<int:pk>/edit/", views.team_edit, name="team-edit"),
     path("teams/<int:pk>/delete/", views.team_delete, name="team-delete"),
+    path("clubs/", views.club_list, name="club-list"),
+    path("clubs/<int:pk>/", views.club_detail, name="club-detail"),
     path(
         "matches/<int:pk>/goal/<score_side:side>/", views.score_goal, name="score-goal"
     ),

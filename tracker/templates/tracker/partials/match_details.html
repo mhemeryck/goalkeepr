@@ -11,11 +11,6 @@
     {% else %}
       {% include "tracker/partials/match_detail_row.html" with field_name="away-team" field_label="Away team" %}
     {% endif %}
-    {% if editing_field == "status" %}
-      {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="status" field_label="Status" %}
-    {% else %}
-      {% include "tracker/partials/match_detail_row.html" with field_name="status" field_label="Status" %}
-    {% endif %}
     {% if editing_field == "date" %}
       {% include "tracker/partials/match_detail_edit_row.html" with field=edit_field field_name="date" field_label="Date" %}
     {% else %}

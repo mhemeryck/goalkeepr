@@ -3,7 +3,10 @@
   <label class="match-detail-label" for="{{ field.id_for_label }}">{{ field_label }}</label>
   <div class="match-detail-control">
     {{ field }}
-    <button type="submit">Save</button>
+    <span class="edit-actions">
+      <button type="submit">Save</button>
+      <a role="button" class="secondary" href="{% url 'match-detail' match.pk %}" hx-get="{% url 'match-field-edit' match.pk field_name %}?cancel=1" hx-target="#match-detail-{{ field_name }}" hx-swap="outerHTML">Cancel</a>
+    </span>
     {{ field.errors }}
     {{ form.non_field_errors }}
   </div>

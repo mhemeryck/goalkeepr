@@ -1,9 +1,7 @@
 <div id="match-list">
   {% if matches %}
     <div class="match-list">
-      {% for match in matches %}
-        {% include "tracker/partials/match_card.html" %}
-      {% endfor %}
+      {% include "tracker/partials/match_page.html" %}
     </div>
   {% else %}
     <section class="empty-state">

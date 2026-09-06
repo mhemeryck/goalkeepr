@@ -35,6 +35,68 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
         if editable_field is not None:
             self.fields = {editable_field: self.fields[editable_field]}
 
+    def clean(self) -> dict[str, typing.Any]:
+        cleaned_data = super().clean() or {}
+        if self.instance.pk is None:
+            return cleaned_data
+        for field_name, side in (
+            ("home_team", tracker.models.ScoreEvent.Side.HOME),
+            ("away_team", tracker.models.ScoreEvent.Side.AWAY),
+        ):
+            team = cleaned_data.get(field_name)
+            if team is None:
+                continue
+            invalid_scorer = (
+                tracker.models.ScoreEvent.objects.filter(
+                    match=self.instance,
+                    side=side,
+                    scorer__isnull=False,
+                )
+                .exclude(scorer__teams=team)
+                .exists()
+            )
+            if invalid_scorer:
+                self.add_error(
+                    field_name,
+                    "Changing this team would invalidate existing scorer attribution.",
+                )
+        return cleaned_data
+
+
+class MatchCreateForm(forms.Form):
+    opponent_name = forms.CharField(label="Opponent", max_length=100)
+    is_home = forms.ChoiceField(
+        label="Venue",
+        choices=(("true", "Home"), ("false", "Away")),
+        widget=forms.RadioSelect,
+        initial="true",
+    )
+    match_date = forms.DateField(
+        label="Date",
+        widget=forms.DateInput(format="%Y-%m-%d", attrs={"type": "date"}),
+        initial=timezone.localdate,
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+    def __init__(
+        self,
+        *args: typing.Any,
+        default_team: tracker.models.Team,
+        **kwargs: typing.Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.default_team = default_team
+        self.fields["opponent_name"].widget.attrs["list"] = "opponent-teams"
+
+    def clean_opponent_name(self) -> str:
+        name = str(self.cleaned_data["opponent_name"]).strip()
+        if name.casefold() == self.default_team.club.name.casefold():
+            raise forms.ValidationError("The opponent must differ from your team.")
+        return name
+
 
 class GoalForm(forms.Form):
     scorer_name = forms.CharField(required=False, max_length=100)
@@ -61,23 +123,23 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
 
     def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["age_group"].widget.attrs["list"] = "age-groups"
+        self.fields["age_group"].widget.attrs["list"] = (
+            f"age-groups-{self.instance.pk}"
+        )
+        self.fields["club_name"].widget.attrs["list"] = f"clubs-{self.instance.pk}"
         if not self.is_bound and self.instance.pk:
             self.fields["club_name"].initial = self.instance.club.name
 
     def clean_club_name(self) -> str:
         name = str(self.cleaned_data["club_name"]).strip()
-        duplicate = tracker.models.Club.objects.filter(name__iexact=name).exclude(
-            pk=self.instance.club_id
-        )
-        if duplicate.exists():
-            raise forms.ValidationError("A club with this name already exists.")
-        return name
+        club = tracker.models.Club.objects.filter(name__iexact=name).first()
+        if club is None:
+            raise forms.ValidationError("Select an existing club.")
+        self.instance.club = club
+        return club.name
 
     def save(self, commit: bool = True) -> tracker.models.Team:
         team = super().save(commit=False)
-        team.club.name = str(self.cleaned_data["club_name"])
         if commit:
-            team.club.save(update_fields=["name"])
             team.save()
         return team

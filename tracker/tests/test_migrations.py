@@ -76,6 +76,13 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
         opponent=opponent,
         match_date=date(2027, 5, 1),
     )
+    primary_named_opponent, _ = old_team.objects.get_or_create(
+        name=settings.PRIMARY_CLUB_NAME
+    )
+    same_named_match = old_match.objects.create(
+        opponent=primary_named_opponent,
+        match_date=date(2026, 8, 18),
+    )
 
     executor = MigrationExecutor(connection)
     executor.migrate([("tracker", "0004_expand_match_domain")])
@@ -92,6 +99,7 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     migrated_finished = match.objects.get(pk=finished_match.pk)
     migrated_scheduled = match.objects.get(pk=scheduled_match.pk)
     migrated_event = score_event.objects.get(pk=event.pk)
+    migrated_same_named = match.objects.get(pk=same_named_match.pk)
 
     assert season.objects.filter(
         name="2026-2027",
@@ -99,6 +107,7 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
         end_date=date(2027, 6, 30),
     ).exists()
     assert primary_team.age_group == "U11"
+    assert season.objects.get(name="2026-2027").default_team == primary_team
     assert migrated_finished.home_team.club.name == "United"
     assert migrated_finished.away_team == primary_team
     assert migrated_finished.status == "finished"
@@ -107,4 +116,14 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     assert migrated_event.scorer.name == "Alex"
     assert migrated_event.occurred_at is None
     assert membership.objects.filter(player_id=player.pk, team=primary_team).exists()
+    assert migrated_same_named.home_team_id != migrated_same_named.away_team_id
+
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0003_match_enhancements")])
+    restored_apps = executor.loader.project_state(
+        [("tracker", "0003_match_enhancements")]
+    ).apps
+    restored_match = restored_apps.get_model("tracker", "Match")
+    assert restored_match.objects.get(pk=finished_match.pk).opponent_id is not None
+
     MigrationExecutor(connection).migrate([("tracker", "0004_expand_match_domain")])

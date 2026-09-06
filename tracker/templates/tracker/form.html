@@ -5,28 +5,27 @@
   <section class="form-card">
     <p class="eyebrow">Goalkeepr</p>
     <h1>{{ title }}</h1>
+    <p class="form-context">{{ default_team }} &middot; {{ default_team.season }}</p>
     <form method="post">
       {% csrf_token %}
       {{ form.non_field_errors }}
       <p>
-        {{ form.home_team.label_tag }}
-        {{ form.home_team }}
-        {{ form.home_team.errors }}
+        {{ form.opponent_name.label_tag }}
+        {{ form.opponent_name }}
+        {{ form.opponent_name.errors }}
+        <datalist id="opponent-teams">
+          {% for name in opponent_names %}<option value="{{ name }}"></option>{% endfor %}
+        </datalist>
       </p>
-      <p>
-        {{ form.away_team.label_tag }}
-        {{ form.away_team }}
-        {{ form.away_team.errors }}
-      </p>
+      <fieldset class="venue-choice">
+        <legend>{{ form.is_home.label }}</legend>
+        {{ form.is_home }}
+        {{ form.is_home.errors }}
+      </fieldset>
       <p>
         {{ form.match_date.label_tag }}
         {{ form.match_date }}
         {{ form.match_date.errors }}
-      </p>
-      <p>
-        {{ form.status.label_tag }}
-        {{ form.status }}
-        {{ form.status.errors }}
       </p>
       <details>
         <summary>Notes</summary>
