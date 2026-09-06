@@ -4,11 +4,11 @@ import datetime
 
 import django.db.models.deletion
 import django.db.models.functions.text
-from django.conf import settings
 from django.db import migrations, models
 
 SEASON_NAME = "2026-2027"
 AGE_GROUP = "U11"
+LEGACY_PRIMARY_CLUB_NAME = "K.F.C. Sparta Kolmont"
 MIGRATION_DATE = datetime.date(2026, 9, 1)
 
 
@@ -31,7 +31,7 @@ def expand_match_domain(apps, schema_editor):
     for team_id, name in legacy_names.items():
         club_name = (
             f"{name} (opponent)"
-            if name.casefold() == settings.PRIMARY_CLUB_NAME.casefold()
+            if name.casefold() == LEGACY_PRIMARY_CLUB_NAME.casefold()
             else name
         )
         club = club_model.objects.filter(name__iexact=club_name).first()
@@ -45,15 +45,15 @@ def expand_match_domain(apps, schema_editor):
         )
 
     primary_club = club_model.objects.filter(
-        name__iexact=settings.PRIMARY_CLUB_NAME
+        name__iexact=LEGACY_PRIMARY_CLUB_NAME
     ).first()
     if primary_club is None:
-        primary_club = club_model.objects.create(name=settings.PRIMARY_CLUB_NAME)
+        primary_club = club_model.objects.create(name=LEGACY_PRIMARY_CLUB_NAME)
     primary_team, _ = team_model.objects.get_or_create(
         club=primary_club,
         season=season,
         age_group=AGE_GROUP,
-        defaults={"name": settings.PRIMARY_CLUB_NAME},
+        defaults={"name": LEGACY_PRIMARY_CLUB_NAME},
     )
     season_model.objects.filter(pk=season.pk).update(default_team_id=primary_team.pk)
 
@@ -86,7 +86,7 @@ def restore_match_domain(apps, schema_editor):
     team_model = apps.get_model("tracker", "Team")
     match_model = apps.get_model("tracker", "Match")
     primary_club = club_model.objects.filter(
-        name__iexact=settings.PRIMARY_CLUB_NAME
+        name__iexact=LEGACY_PRIMARY_CLUB_NAME
     ).first()
 
     for team in team_model.objects.select_related("club"):
@@ -106,7 +106,7 @@ def remove_generated_primary_team(apps, schema_editor):
     season_model = apps.get_model("tracker", "Season")
     team_model = apps.get_model("tracker", "Team")
     primary_club = club_model.objects.filter(
-        name__iexact=settings.PRIMARY_CLUB_NAME
+        name__iexact=LEGACY_PRIMARY_CLUB_NAME
     ).first()
     if primary_club is None:
         return

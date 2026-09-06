@@ -1,9 +1,10 @@
 from datetime import date
 
 import pytest
-from django.conf import settings
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
+
+PRIMARY_CLUB_NAME = "K.F.C. Sparta Kolmont"
 
 
 @pytest.mark.django_db(transaction=True)
@@ -76,9 +77,7 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
         opponent=opponent,
         match_date=date(2027, 5, 1),
     )
-    primary_named_opponent, _ = old_team.objects.get_or_create(
-        name=settings.PRIMARY_CLUB_NAME
-    )
+    primary_named_opponent, _ = old_team.objects.get_or_create(name=PRIMARY_CLUB_NAME)
     same_named_match = old_match.objects.create(
         opponent=primary_named_opponent,
         match_date=date(2026, 8, 18),
@@ -94,7 +93,7 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     score_event = apps.get_model("tracker", "ScoreEvent")
     membership = apps.get_model("tracker", "TeamMembership")
 
-    primary_club = club.objects.get(name=settings.PRIMARY_CLUB_NAME)
+    primary_club = club.objects.get(name=PRIMARY_CLUB_NAME)
     primary_team = team.objects.get(club=primary_club)
     migrated_finished = match.objects.get(pk=finished_match.pk)
     migrated_scheduled = match.objects.get(pk=scheduled_match.pk)

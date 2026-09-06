@@ -467,10 +467,32 @@ body {
   text-align: left;
 }
 
-.scorer-slot input {
+.scorer-slot input,
+.scorer-slot select {
   min-width: 0;
   margin: 0;
   background: white;
+}
+
+.add-player-panel {
+  color: white;
+  text-align: left;
+}
+
+.add-player-panel summary,
+.add-player-panel label {
+  color: white;
+}
+
+.add-player-panel form {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+
+.add-player-panel input,
+.add-player-panel button {
+  margin: 0;
 }
 
 .scorer-placeholder {

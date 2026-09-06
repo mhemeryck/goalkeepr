@@ -11,11 +11,26 @@
           {% if correction_mode %}<input type="hidden" name="correction" value="1">{% endif %}
           {% if household_side == 'home' %}<div class="scorer-slot">
             <label for="scorer-home">Scorer <small>(optional)</small></label>
-            <input id="scorer-home" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
+            <select id="scorer-home" name="scorer">
+              <option value="">No scorer recorded</option>
+              {% for player in household_players %}<option value="{{ player.pk }}"{% if selected_scorer_id == player.pk %} selected{% endif %}>{{ player.name }}</option>{% endfor %}
+            </select>
           </div>{% else %}<div class="scorer-slot scorer-placeholder" aria-hidden="true"></div>{% endif %}
           <button id="goal-home" class="goal-button" type="submit" aria-label="Record goal for {{ home_name }}">+ Home goal</button>
           <small class="htmx-indicator">Recording...</small>
         </form>
+        {% if household_side == 'home' %}
+          <details class="add-player-panel">
+            <summary>Add player</summary>
+            <form method="post" action="{% url 'match-player-add' match.pk %}" hx-post="{% url 'match-player-add' match.pk %}" hx-target="#scoreboard" hx-swap="outerHTML">
+              {% csrf_token %}
+              {% if correction_mode %}<input type="hidden" name="correction" value="1">{% endif %}
+              <label for="new-player-home">Player name</label>
+              <input id="new-player-home" name="name" required maxlength="100">
+              <button type="submit">Add and select</button>
+            </form>
+          </details>
+        {% endif %}
         <form method="post" action="{% url 'score-undo' match.pk 'home' %}" hx-post="{% url 'score-undo' match.pk 'home' %}" hx-target="#scoreboard" hx-swap="outerHTML" hx-disabled-elt="find button">
           {% csrf_token %}
           {% if correction_mode %}<input type="hidden" name="correction" value="1">{% endif %}
@@ -34,11 +49,26 @@
           {% if correction_mode %}<input type="hidden" name="correction" value="1">{% endif %}
           {% if household_side == 'away' %}<div class="scorer-slot">
             <label for="scorer-away">Scorer <small>(optional)</small></label>
-            <input id="scorer-away" name="scorer_name" list="household-players" autocomplete="off" placeholder="Player name">
+            <select id="scorer-away" name="scorer">
+              <option value="">No scorer recorded</option>
+              {% for player in household_players %}<option value="{{ player.pk }}"{% if selected_scorer_id == player.pk %} selected{% endif %}>{{ player.name }}</option>{% endfor %}
+            </select>
           </div>{% else %}<div class="scorer-slot scorer-placeholder" aria-hidden="true"></div>{% endif %}
           <button id="goal-away" class="goal-button" type="submit" aria-label="Record goal for {{ away_name }}">+ Away goal</button>
           <small class="htmx-indicator">Recording...</small>
         </form>
+        {% if household_side == 'away' %}
+          <details class="add-player-panel">
+            <summary>Add player</summary>
+            <form method="post" action="{% url 'match-player-add' match.pk %}" hx-post="{% url 'match-player-add' match.pk %}" hx-target="#scoreboard" hx-swap="outerHTML">
+              {% csrf_token %}
+              {% if correction_mode %}<input type="hidden" name="correction" value="1">{% endif %}
+              <label for="new-player-away">Player name</label>
+              <input id="new-player-away" name="name" required maxlength="100">
+              <button type="submit">Add and select</button>
+            </form>
+          </details>
+        {% endif %}
         <form method="post" action="{% url 'score-undo' match.pk 'away' %}" hx-post="{% url 'score-undo' match.pk 'away' %}" hx-target="#scoreboard" hx-swap="outerHTML" hx-disabled-elt="find button">
           {% csrf_token %}
           {% if correction_mode %}<input type="hidden" name="correction" value="1">{% endif %}
@@ -68,9 +98,6 @@
         <p class="empty-goals">No goals recorded yet.</p>
       {% endif %}
     </section>
-  {% endif %}
-  {% if can_score %}
-    <datalist id="household-players">{% for name in household_player_names %}<option value="{{ name }}"></option>{% endfor %}</datalist>
   {% endif %}
   {% if can_modify %}
     <div class="match-status-actions">

@@ -2,10 +2,10 @@
   <a id="match-link-{{ match.pk }}" class="match-card-link" href="{% url 'match-detail' match.pk %}">
     <div>
       <time class="match-date" datetime="{{ match.match_date|date:'Y-m-d' }}">{{ match.match_date|date:"D j M Y" }}</time>
-      {% if match.home_team.club.name == primary_club_name %}
+      {% if match.home_team_id == primary_team_id %}
         <strong>{{ match.away_team.club.name }}</strong>
         <small>Home{% if show_team_context %} &middot; {{ match.home_team.age_group }} &middot; {{ match.home_team.season }}{% endif %}</small>
-      {% elif match.away_team.club.name == primary_club_name %}
+      {% elif match.away_team_id == primary_team_id %}
         <strong>{{ match.home_team.club.name }}</strong>
         <small>Away{% if show_team_context %} &middot; {{ match.away_team.age_group }} &middot; {{ match.away_team.season }}{% endif %}</small>
       {% else %}

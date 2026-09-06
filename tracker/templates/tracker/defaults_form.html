@@ -11,14 +11,22 @@
       {% csrf_token %}
       {{ form.non_field_errors }}
       <p>
+        {{ form.default_club.label_tag }}
+        {{ form.default_club }}
+        {{ form.default_club.errors }}
+      </p>
+      <p>
         {{ form.default_season.label_tag }}
         {{ form.default_season }}
         {{ form.default_season.errors }}
       </p>
       <p>
-        {{ form.default_team.label_tag }}
-        {{ form.default_team }}
-        {{ form.default_team.errors }}
+        {{ form.default_age_group.label_tag }}
+        {{ form.default_age_group }}
+        {{ form.default_age_group.errors }}
+        <datalist id="age-groups">
+          {% for age_group in age_groups %}<option value="{{ age_group }}"></option>{% endfor %}
+        </datalist>
       </p>
       <button type="submit">Save defaults</button>
     </form>

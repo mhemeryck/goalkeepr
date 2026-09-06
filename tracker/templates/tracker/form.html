@@ -10,12 +10,18 @@
       {% csrf_token %}
       {{ form.non_field_errors }}
       <p>
-        {{ form.opponent_name.label_tag }}
-        {{ form.opponent_name }}
-        {{ form.opponent_name.errors }}
-        <datalist id="opponent-teams">
-          {% for name in opponent_names %}<option value="{{ name }}"></option>{% endfor %}
-        </datalist>
+        {{ form.opponent_team.label_tag }}
+        {{ form.opponent_team }}
+        {{ form.opponent_team.errors }}
+        <small>The selected team, season, and age group will be stored with the match.</small>
+      </p>
+      <p><a href="{% url 'team-create' %}?next=match-create">Add opponent team</a></p>
+      <p>
+        {% if show_all_teams %}
+          <a href="{% url 'match-create' %}">Use default match context</a>
+        {% else %}
+          <a href="{% url 'match-create' %}?all_teams=1">Choose a different age group</a>
+        {% endif %}
       </p>
       <fieldset class="venue-choice">
         <legend>{{ form.is_home.label }}</legend>

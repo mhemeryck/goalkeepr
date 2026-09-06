@@ -2,7 +2,6 @@ import typing
 
 from asgiref.sync import sync_to_async
 from django import forms
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Prefetch, Q, QuerySet, Value, When
@@ -89,6 +88,7 @@ def _scored_matches(
 async def _match_list_context(request: HttpRequest) -> dict[str, typing.Any]:
     seasons = [season async for season in tracker.models.Season.objects.all()]
     defaults = await _defaults()
+    default_team = await _resolve_default_team(defaults)
     selected_season = request.GET.get("season")
     if selected_season is None:
         selected_season = (
@@ -108,11 +108,10 @@ async def _match_list_context(request: HttpRequest) -> dict[str, typing.Any]:
             if (
                 defaults is not None
                 and defaults.default_season_id == season_id
-                and defaults.default_team_id is not None
+                and default_team is not None
             ):
                 queryset = queryset.filter(
-                    Q(home_team_id=defaults.default_team_id)
-                    | Q(away_team_id=defaults.default_team_id)
+                    Q(home_team_id=default_team.pk) | Q(away_team_id=default_team.pk)
                 )
             else:
                 queryset = queryset.filter(home_team__season_id=season_id)
@@ -155,16 +154,21 @@ async def _match_list_context(request: HttpRequest) -> dict[str, typing.Any]:
         "next_url": (
             f"{reverse('match-list')}?{params.urlencode()}" if has_more else None
         ),
-        "primary_club_name": settings.PRIMARY_CLUB_NAME,
+        "primary_team_id": default_team.pk if default_team is not None else None,
+        "primary_club_name": (
+            defaults.default_club.name
+            if defaults is not None and defaults.default_club is not None
+            else "Goalkeepr"
+        ),
     }
 
 
-async def _player_names(team: tracker.models.Team) -> list[str]:
+async def _players(team: tracker.models.Team) -> list[tracker.models.Player]:
     return [
-        name
-        async for name in tracker.models.Player.objects.filter(teams=team)
-        .order_by("name")
-        .values_list("name", flat=True)
+        player
+        async for player in tracker.models.Player.objects.filter(teams=team).order_by(
+            "name"
+        )
     ]
 
 
@@ -209,8 +213,12 @@ async def _season_choices() -> list[tuple[int, str]]:
     ]
 
 
+async def _club_choices() -> list[tuple[int, str]]:
+    return [(club.pk, str(club)) async for club in tracker.models.Club.objects.all()]
+
+
 async def _set_team_choices(form: tracker.forms.MatchForm) -> None:
-    choices = [("", "---------"), *(await _team_choices())]
+    choices = await _team_choices()
     for field_name in ("home_team", "away_team"):
         if field_name in form.fields:
             typing.cast(forms.ChoiceField, form.fields[field_name]).choices = choices
@@ -234,44 +242,48 @@ async def _club_names() -> list[str]:
     ]
 
 
-async def _current_season() -> tracker.models.Season | None:
-    today = timezone.localdate()
-    season = (
-        await tracker.models.Season.objects.select_related(
-            "default_team__club", "default_team__season"
-        )
-        .filter(start_date__lte=today, end_date__gte=today)
-        .afirst()
-    )
-    if season is not None:
-        return season
-    return await tracker.models.Season.objects.select_related(
-        "default_team__club", "default_team__season"
-    ).afirst()
-
-
 async def _defaults() -> tracker.models.Defaults | None:
     return await tracker.models.Defaults.objects.select_related(
-        "default_season", "default_team__club", "default_team__season"
+        "default_club", "default_season"
     ).afirst()
 
 
-async def _opponent_names(default_team: tracker.models.Team) -> list[str]:
-    return [
-        name
-        async for name in tracker.models.Club.objects.filter(
-            teams__season=default_team.season,
-            teams__age_group=default_team.age_group,
+async def _resolve_default_team(
+    defaults: tracker.models.Defaults | None,
+) -> tracker.models.Team | None:
+    if (
+        defaults is None
+        or defaults.default_club_id is None
+        or defaults.default_season_id is None
+        or not defaults.default_age_group
+    ):
+        return None
+    return (
+        await tracker.models.Team.objects.select_related("club", "season")
+        .filter(
+            club_id=defaults.default_club_id,
+            season_id=defaults.default_season_id,
+            age_group__iexact=defaults.default_age_group,
         )
-        .exclude(pk=default_team.club_id)
-        .order_by("name")
-        .values_list("name", flat=True)
-        .distinct()
+        .afirst()
+    )
+
+
+async def _opponent_team_choices(
+    default_team: tracker.models.Team,
+    *,
+    include_other_contexts: bool = False,
+) -> list[tuple[int, str]]:
+    teams = tracker.models.Team.objects.select_related("club", "season").exclude(
+        pk=default_team.pk
+    )
+    if not include_other_contexts:
+        teams = teams.filter(age_group__iexact=default_team.age_group)
+    teams = teams.filter(season=default_team.season)
+    return [
+        (team.pk, f"{team.club.name} {team.age_group} · {team.season}")
+        async for team in teams
     ]
-
-
-def _is_primary_team(team: tracker.models.Team) -> bool:
-    return team.club.name.casefold() == str(settings.PRIMARY_CLUB_NAME).casefold()
 
 
 async def _players_with_goal_counts() -> list[tracker.models.Player]:
@@ -323,6 +335,7 @@ async def _score_context(
     *,
     can_modify: bool,
     correction_mode: bool = False,
+    selected_scorer_id: int | None = None,
 ) -> dict[str, typing.Any]:
     events = [event async for event in match.score_events.select_related("scorer")]
     show_score = match.status in {
@@ -334,10 +347,16 @@ async def _score_context(
         or (match.status == tracker.models.Match.Status.FINISHED and correction_mode)
     )
     household_side = None
-    if _is_primary_team(match.home_team):
+    default_team = await _resolve_default_team(await _defaults())
+    if default_team is not None and match.home_team_id == default_team.pk:
         household_side = tracker.models.ScoreEvent.Side.HOME
-    elif _is_primary_team(match.away_team):
+    elif default_team is not None and match.away_team_id == default_team.pk:
         household_side = tracker.models.ScoreEvent.Side.AWAY
+    household_team = (
+        match.home_team
+        if household_side == tracker.models.ScoreEvent.Side.HOME
+        else match.away_team
+    )
     return {
         "match": match,
         "home_name": str(match.home_team),
@@ -349,15 +368,12 @@ async def _score_context(
             side=tracker.models.ScoreEvent.Side.AWAY
         ).acount(),
         "household_side": household_side,
-        "household_player_names": (
-            await _player_names(
-                match.home_team
-                if household_side == tracker.models.ScoreEvent.Side.HOME
-                else match.away_team
-            )
+        "household_players": (
+            await _players(household_team)
             if can_score and household_side is not None
             else []
         ),
+        "selected_scorer_id": selected_scorer_id,
         "events": events if show_score else [],
         "can_modify": can_modify,
         "can_score": can_score,
@@ -373,9 +389,13 @@ async def _match_detail_context(
     editing_field: str | None = None,
     edit_form: tracker.forms.MatchForm | None = None,
     correction_mode: bool = False,
+    selected_scorer_id: int | None = None,
 ) -> dict[str, typing.Any]:
     context = await _score_context(
-        match, can_modify=can_modify, correction_mode=correction_mode
+        match,
+        can_modify=can_modify,
+        correction_mode=correction_mode,
+        selected_scorer_id=selected_scorer_id,
     )
     if editing_field is not None and edit_form is not None:
         form_field_name = MATCH_EDIT_FIELDS[editing_field]
@@ -395,9 +415,7 @@ def _save_match_form(form: tracker.forms.MatchForm) -> tracker.models.Match:
     return match
 
 
-def _get_or_create_player(
-    name: str, team: tracker.models.Team
-) -> tracker.models.Player:
+def _add_player_to_team(name: str, team: tracker.models.Team) -> tracker.models.Player:
     with transaction.atomic():
         player = tracker.models.Player.objects.filter(name__iexact=name).first()
         if player is None:
@@ -414,30 +432,17 @@ def _save_created_match(
     form: tracker.forms.MatchCreateForm,
     default_team: tracker.models.Team,
 ) -> tracker.models.Match:
-    with transaction.atomic():
-        opponent_name = str(form.cleaned_data["opponent_name"])
-        club = tracker.models.Club.objects.filter(name__iexact=opponent_name).first()
-        if club is None:
-            try:
-                with transaction.atomic():
-                    club = tracker.models.Club.objects.create(name=opponent_name)
-            except IntegrityError:
-                club = tracker.models.Club.objects.get(name__iexact=opponent_name)
-        opponent, _ = tracker.models.Team.objects.get_or_create(
-            club=club,
-            season=default_team.season,
-            age_group=default_team.age_group,
-        )
-        is_home = form.cleaned_data["is_home"] == "true"
-        match = tracker.models.Match(
-            home_team=default_team if is_home else opponent,
-            away_team=opponent if is_home else default_team,
-            match_date=form.cleaned_data["match_date"],
-            notes=form.cleaned_data["notes"],
-        )
-        match.full_clean()
-        match.save()
-        return match
+    opponent = typing.cast(tracker.models.Team, form.cleaned_data["opponent_team"])
+    is_home = form.cleaned_data["is_home"] == "true"
+    match = tracker.models.Match(
+        home_team=default_team if is_home else opponent,
+        away_team=opponent if is_home else default_team,
+        match_date=form.cleaned_data["match_date"],
+        notes=form.cleaned_data["notes"],
+    )
+    match.full_clean()
+    match.save()
+    return match
 
 
 async def match_list(request: HttpRequest) -> HttpResponse:
@@ -549,6 +554,47 @@ async def team_list(request: HttpRequest) -> HttpResponse:
 
 
 @login_required
+async def team_create(request: HttpRequest) -> HttpResponse:
+    request.user = await request.auser()
+    defaults = await _defaults()
+    initial: dict[str, typing.Any] = {}
+    if defaults is not None:
+        initial = {
+            "club_name": (
+                defaults.default_club.name if defaults.default_club is not None else ""
+            ),
+            "season": defaults.default_season_id,
+            "age_group": defaults.default_age_group,
+        }
+    form = tracker.forms.TeamForm(
+        request.POST or None,
+        initial=initial,
+        season_choices=await _season_choices(),
+    )
+    if request.method == "POST" and await _form_is_valid(form):
+        team = await sync_to_async(form.save)()
+        if request.GET.get("next") == "match-create":
+            return redirect(f"{reverse('match-create')}?opponent={team.pk}")
+        return redirect("team-detail", pk=team.pk)
+    return render(
+        request,
+        "tracker/team_form.html",
+        {
+            "form": form,
+            "title": "Add opponent team" if request.GET.get("next") else "Add team",
+            "cancel_url": (
+                reverse("match-create")
+                if request.GET.get("next") == "match-create"
+                else reverse("team-list")
+            ),
+            "club_names": await _club_names(),
+            "age_groups": await _age_groups(),
+        },
+        status=400 if form.is_bound else 200,
+    )
+
+
+@login_required
 async def team_detail(request: HttpRequest, pk: int) -> HttpResponse:
     result = await _team_result(pk)
     if result is None:
@@ -575,7 +621,11 @@ async def team_detail(request: HttpRequest, pk: int) -> HttpResponse:
             "team": team,
             "memberships": memberships,
             "matches": matches,
-            "primary_club_name": settings.PRIMARY_CLUB_NAME,
+            "primary_team_id": (
+                default_team.pk
+                if (default_team := await _resolve_default_team(await _defaults()))
+                else None
+            ),
             "show_team_context": False,
         },
     )
@@ -678,19 +728,11 @@ async def club_delete(request: HttpRequest, pk: int) -> HttpResponse:
 async def defaults_edit(request: HttpRequest) -> HttpResponse:
     request.user = await request.auser()
     defaults, _ = await tracker.models.Defaults.objects.aget_or_create(pk=1)
-    season_value = request.POST.get("default_season")
-    if season_value is None:
-        season_id = defaults.default_season_id
-    else:
-        try:
-            season_id = int(season_value)
-        except ValueError:
-            season_id = None
     form = tracker.forms.DefaultsForm(
         request.POST or None,
         instance=defaults,
+        club_choices=await _club_choices(),
         season_choices=await _season_choices(),
-        team_choices=await _team_choices_for_season(season_id),
     )
     if request.method == "POST" and await _form_is_valid(form):
         await sync_to_async(_save_defaults_form)(form)
@@ -698,7 +740,7 @@ async def defaults_edit(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "tracker/defaults_form.html",
-        {"form": form},
+        {"form": form, "age_groups": await _age_groups()},
         status=400 if form.is_bound else 200,
     )
 
@@ -717,34 +759,22 @@ async def team_edit(request: HttpRequest, pk: int) -> HttpResponse:
         return await _not_found_response(request)
     request.user = await request.auser()
     team = result["team"]
-    form = tracker.forms.TeamForm(request.POST or None, instance=team)
+    form = tracker.forms.TeamForm(
+        request.POST or None,
+        instance=team,
+        season_choices=await _season_choices(),
+    )
     if request.method == "POST" and await _form_is_valid(form):
         await sync_to_async(form.save)()
-        if request.headers.get("HX-Request") == "true":
-            return render(
-                request,
-                "tracker/partials/team_row.html",
-                {"result": await _team_result(pk)},
-            )
-        return redirect("team-list")
-    if request.headers.get("HX-Request") == "true":
-        return render(
-            request,
-            "tracker/partials/team_edit_row.html",
-            {
-                "result": result,
-                "form": form,
-                "age_groups": await _age_groups(),
-                "club_names": await _club_names(),
-            },
-        )
+        return redirect("team-detail", pk=team.pk)
     return render(
         request,
-        "tracker/team_list.html",
+        "tracker/team_form.html",
         {
-            "teams": await _teams_with_results(),
-            "edit_form": form,
-            "editing_team_id": team.pk,
+            "team": team,
+            "title": "Edit team",
+            "form": form,
+            "cancel_url": reverse("team-detail", args=[team.pk]),
             "age_groups": await _age_groups(),
             "club_names": await _club_names(),
         },
@@ -774,18 +804,32 @@ async def match_create(request: HttpRequest) -> HttpResponse:
     defaults = await _defaults()
     if (
         defaults is None
+        or defaults.default_club is None
         or defaults.default_season is None
-        or defaults.default_team is None
+        or not defaults.default_age_group
     ):
         return HttpResponse(
-            "Configure default season and team before adding a match. "
+            "Configure default club, season, and age group before adding a match. "
             f'<a href="{reverse("defaults-edit")}">Configure defaults</a>.',
             status=409,
         )
-    default_team = defaults.default_team
+    default_team = await _resolve_default_team(defaults)
+    if default_team is None:
+        return HttpResponse(
+            "The configured defaults do not identify an existing household team. "
+            f'<a href="{reverse("defaults-edit")}">Configure defaults</a>.',
+            status=409,
+        )
+    show_all_teams = request.GET.get("all_teams") == "1"
+    opponent_choices = await _opponent_team_choices(
+        default_team,
+        include_other_contexts=show_all_teams,
+    )
     form = tracker.forms.MatchCreateForm(
         request.POST or None,
         default_team=default_team,
+        opponent_choices=opponent_choices,
+        initial={"opponent_team": request.GET.get("opponent", "")},
     )
     if request.method == "POST" and await _form_is_valid(form):
         match = await sync_to_async(_save_created_match)(form, default_team)
@@ -797,7 +841,7 @@ async def match_create(request: HttpRequest) -> HttpResponse:
             "form": form,
             "title": "Add match",
             "default_team": default_team,
-            "opponent_names": await _opponent_names(default_team),
+            "show_all_teams": show_all_teams,
         },
         status=400 if form.is_bound else 200,
     )
@@ -827,6 +871,10 @@ async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
         edit_form.fields[form_field_name].widget.attrs["autofocus"] = True
     else:
         editing_field = None
+    try:
+        selected_scorer_id = int(request.GET.get("scorer", ""))
+    except ValueError:
+        selected_scorer_id = None
     return render(
         request,
         "tracker/match_detail.html",
@@ -836,6 +884,7 @@ async def match_detail(request: HttpRequest, pk: int) -> HttpResponse:
             editing_field=editing_field,
             edit_form=edit_form,
             correction_mode=request.GET.get("correct") == "1",
+            selected_scorer_id=selected_scorer_id,
         ),
     )
 
@@ -1043,15 +1092,17 @@ async def score_goal(
         if side == tracker.models.ScoreEvent.Side.HOME
         else match.away_team
     )
-    if _is_primary_team(scoring_team):
-        form = tracker.forms.GoalForm(request.POST)
+    default_team = await _resolve_default_team(await _defaults())
+    if default_team is not None and scoring_team.pk == default_team.pk:
+        players = await _players(scoring_team)
+        form = tracker.forms.GoalForm(
+            request.POST,
+            team=scoring_team,
+            player_choices=[(player.pk, player.name) for player in players],
+        )
         if not await _form_is_valid(form):
             return HttpResponse("Invalid scorer.", status=400)
-        scorer_name = str(form.cleaned_data["scorer_name"])
-        if scorer_name:
-            scorer = await sync_to_async(_get_or_create_player)(
-                scorer_name, scoring_team
-            )
+        scorer = form.cleaned_data["scorer"]
     now = timezone.now()
     await tracker.models.ScoreEvent.objects.acreate(
         match=match, side=side, scorer=scorer, recorded_at=now, occurred_at=now
@@ -1067,6 +1118,45 @@ async def score_goal(
             ),
         )
     return redirect("match-detail", pk=match.pk)
+
+
+@require_POST
+@login_required
+async def match_player_add(request: HttpRequest, pk: int) -> HttpResponse:
+    try:
+        match = await _get_match(pk)
+    except tracker.models.Match.DoesNotExist:
+        return await _not_found_response(request)
+    default_team = await _resolve_default_team(await _defaults())
+    household_team = None
+    if default_team is not None and match.home_team_id == default_team.pk:
+        household_team = match.home_team
+    elif default_team is not None and match.away_team_id == default_team.pk:
+        household_team = match.away_team
+    if household_team is None:
+        return HttpResponse("This match has no configured household team.", status=409)
+    form = tracker.forms.AddPlayerForm(request.POST)
+    if not await _form_is_valid(form):
+        return HttpResponse("Enter a player name.", status=400)
+    player = await sync_to_async(_add_player_to_team)(
+        str(form.cleaned_data["name"]), household_team
+    )
+    correction_mode = request.POST.get("correction") == "1"
+    if request.headers.get("HX-Request") == "true":
+        return render(
+            request,
+            "tracker/partials/scoreboard.html",
+            await _score_context(
+                match,
+                can_modify=True,
+                correction_mode=correction_mode,
+                selected_scorer_id=player.pk,
+            ),
+        )
+    params = f"?scorer={player.pk}"
+    if correction_mode:
+        params += "&correct=1"
+    return redirect(f"{reverse('match-detail', args=[match.pk])}{params}")
 
 
 @require_POST

@@ -132,11 +132,6 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
             }
           }
 
-          env {
-            name  = "PRIMARY_CLUB_NAME"
-            value = "K.F.C. Sparta Kolmont"
-          }
-
           port {
             container_port = 8000
           }

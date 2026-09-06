@@ -64,7 +64,7 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
 
 
 class MatchCreateForm(forms.Form):
-    opponent_name = forms.CharField(label="Opponent", max_length=100)
+    opponent_team = forms.ChoiceField(label="Opponent team")
     is_home = forms.ChoiceField(
         label="Venue",
         choices=(("true", "Home"), ("false", "Away")),
@@ -85,24 +85,52 @@ class MatchCreateForm(forms.Form):
         self,
         *args: typing.Any,
         default_team: tracker.models.Team,
+        opponent_choices: list[tuple[int, str]],
         **kwargs: typing.Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         self.default_team = default_team
-        self.fields["opponent_name"].widget.attrs["list"] = "opponent-teams"
+        typing.cast(forms.ChoiceField, self.fields["opponent_team"]).choices = [
+            ("", "Select opponent team"),
+            *opponent_choices,
+        ]
 
-    def clean_opponent_name(self) -> str:
-        name = str(self.cleaned_data["opponent_name"]).strip()
-        if name.casefold() == self.default_team.club.name.casefold():
+    def clean_opponent_team(self) -> tracker.models.Team:
+        value = self.cleaned_data["opponent_team"]
+        try:
+            team = tracker.models.Team.objects.get(pk=value)
+        except tracker.models.Team.DoesNotExist:
+            raise forms.ValidationError("Select a valid opponent team.") from None
+        if team.pk == self.default_team.pk:
             raise forms.ValidationError("The opponent must differ from your team.")
-        return name
+        return team
 
 
 class GoalForm(forms.Form):
-    scorer_name = forms.CharField(required=False, max_length=100)
+    scorer = forms.ChoiceField(required=False)
 
-    def clean_scorer_name(self) -> str:
-        return str(self.cleaned_data["scorer_name"]).strip()
+    def __init__(
+        self,
+        *args: typing.Any,
+        team: tracker.models.Team,
+        player_choices: list[tuple[int, str]],
+        **kwargs: typing.Any,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.team = team
+        typing.cast(forms.ChoiceField, self.fields["scorer"]).choices = [
+            ("", "No scorer recorded"),
+            *player_choices,
+        ]
+
+    def clean_scorer(self) -> tracker.models.Player | None:
+        value = self.cleaned_data["scorer"]
+        if not value:
+            return None
+        try:
+            return tracker.models.Player.objects.get(pk=value, teams=self.team)
+        except tracker.models.Player.DoesNotExist:
+            raise forms.ValidationError("Select a player from this team.") from None
 
 
 class PlayerForm(forms.ModelForm[tracker.models.Player]):
@@ -125,57 +153,104 @@ class ClubForm(forms.ModelForm[tracker.models.Club]):
 
 class TeamForm(forms.ModelForm[tracker.models.Team]):
     club_name = forms.CharField(label="Club", max_length=100)
+    season = forms.ChoiceField()
 
     class Meta:
         model = tracker.models.Team
-        fields = ["age_group"]
+        fields = ["season", "age_group"]
 
-    def __init__(self, *args: typing.Any, **kwargs: typing.Any) -> None:
+    def __init__(
+        self,
+        *args: typing.Any,
+        season_choices: list[tuple[int, str]],
+        **kwargs: typing.Any,
+    ) -> None:
         super().__init__(*args, **kwargs)
-        self.fields["age_group"].widget.attrs["list"] = f"age-groups-{self.instance.pk}"
-        self.fields["club_name"].widget.attrs["list"] = f"clubs-{self.instance.pk}"
+        typing.cast(forms.ChoiceField, self.fields["season"]).choices = season_choices
+        self.fields["club_name"].widget.attrs["list"] = "clubs"
+        self.fields["age_group"].widget.attrs["list"] = "age-groups"
         if not self.is_bound and self.instance.pk:
             self.fields["club_name"].initial = self.instance.club.name
 
     def clean_club_name(self) -> str:
         name = str(self.cleaned_data["club_name"]).strip()
         club = tracker.models.Club.objects.filter(name__iexact=name).first()
-        if club is None:
-            raise forms.ValidationError("Select an existing club.")
-        self.instance.club = club
-        return club.name
+        if club is not None:
+            self.instance.club = club
+        return name
+
+    def clean_season(self) -> tracker.models.Season:
+        try:
+            return tracker.models.Season.objects.get(pk=self.cleaned_data["season"])
+        except tracker.models.Season.DoesNotExist:
+            raise forms.ValidationError("Select a valid season.") from None
+
+    def clean(self) -> dict[str, typing.Any]:
+        cleaned_data = super().clean() or {}
+        club_name = cleaned_data.get("club_name")
+        season = cleaned_data.get("season")
+        age_group = str(cleaned_data.get("age_group", "")).strip()
+        if club_name and season is not None and age_group:
+            duplicate = tracker.models.Team.objects.filter(
+                club__name__iexact=club_name,
+                season=season,
+                age_group__iexact=age_group,
+            )
+            if self.instance.pk:
+                duplicate = duplicate.exclude(pk=self.instance.pk)
+            if duplicate.exists():
+                raise forms.ValidationError(
+                    "This club already has that age group in the selected season."
+                )
+        return cleaned_data
 
     def save(self, commit: bool = True) -> tracker.models.Team:
         team = super().save(commit=False)
+        if team.club_id is None:
+            team.club = tracker.models.Club.objects.create(
+                name=self.cleaned_data["club_name"]
+            )
         if commit:
             team.save()
         return team
 
 
 class DefaultsForm(forms.ModelForm[tracker.models.Defaults]):
+    default_club = forms.ChoiceField(required=False)
     default_season = forms.ChoiceField(required=False)
-    default_team = forms.ChoiceField(required=False)
 
     class Meta:
         model = tracker.models.Defaults
-        fields = ["default_season", "default_team"]
+        fields = ["default_club", "default_season", "default_age_group"]
 
     def __init__(
         self,
         *args: typing.Any,
+        club_choices: list[tuple[int, str]],
         season_choices: list[tuple[int, str]],
-        team_choices: list[tuple[int, str]],
         **kwargs: typing.Any,
     ) -> None:
         super().__init__(*args, **kwargs)
+        typing.cast(forms.ChoiceField, self.fields["default_club"]).choices = [
+            ("", "No default club"),
+            *club_choices,
+        ]
         typing.cast(forms.ChoiceField, self.fields["default_season"]).choices = [
             ("", "No default season"),
             *season_choices,
         ]
-        typing.cast(forms.ChoiceField, self.fields["default_team"]).choices = [
-            ("", "No default team"),
-            *team_choices,
-        ]
+        self.fields["default_age_group"].widget.attrs.update(
+            {"list": "age-groups", "placeholder": "No default age group"}
+        )
+
+    def clean_default_club(self) -> tracker.models.Club | None:
+        value = self.cleaned_data["default_club"]
+        if not value:
+            return None
+        try:
+            return tracker.models.Club.objects.get(pk=value)
+        except tracker.models.Club.DoesNotExist:
+            raise forms.ValidationError("Select a valid default club.") from None
 
     def clean_default_season(self) -> tracker.models.Season | None:
         value = self.cleaned_data["default_season"]
@@ -186,25 +261,9 @@ class DefaultsForm(forms.ModelForm[tracker.models.Defaults]):
         except tracker.models.Season.DoesNotExist:
             raise forms.ValidationError("Select a valid default season.") from None
 
-    def clean_default_team(self) -> tracker.models.Team | None:
-        value = self.cleaned_data["default_team"]
-        if not value:
-            return None
-        try:
-            return tracker.models.Team.objects.get(pk=value)
-        except tracker.models.Team.DoesNotExist:
-            raise forms.ValidationError("Select a valid default team.") from None
 
-    def clean(self) -> dict[str, typing.Any]:
-        cleaned_data = super().clean() or {}
-        default_season = cleaned_data.get("default_season")
-        default_team = cleaned_data.get("default_team")
-        if (
-            default_season is not None
-            and default_team is not None
-            and default_team.season_id != default_season.pk
-        ):
-            self.add_error(
-                "default_team", "The default team must belong to the default season."
-            )
-        return cleaned_data
+class AddPlayerForm(forms.Form):
+    name = forms.CharField(max_length=100)
+
+    def clean_name(self) -> str:
+        return str(self.cleaned_data["name"]).strip()

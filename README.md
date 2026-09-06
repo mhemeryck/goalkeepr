@@ -21,8 +21,7 @@ docker compose exec app python manage.py createsuperuser
 Open <http://localhost:8000> and log in with that account
 
 The PostgreSQL data is retained in the `postgres-data` Docker volume.
-The primary club defaults to `K.F.C. Sparta Kolmont`.
-Set `PRIMARY_CLUB_NAME` before starting Compose to override it.
+Configure the default club, season, and age group from the application defaults page.
 
 ## Container Development
 

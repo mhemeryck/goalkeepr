@@ -36,7 +36,11 @@ def primary_team(season: tracker.models.Season) -> tracker.models.Team:
     )
     tracker.models.Defaults.objects.update_or_create(
         pk=1,
-        defaults={"default_season": season, "default_team": team},
+        defaults={
+            "default_club": club,
+            "default_season": season,
+            "default_age_group": team.age_group,
+        },
     )
     return team
 

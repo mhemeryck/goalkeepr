@@ -27,19 +27,9 @@ class Club(models.Model):
 
 
 class Season(models.Model):
-    if typing.TYPE_CHECKING:
-        default_team_id: int | None
-
     name = models.CharField(max_length=20, unique=True)
     start_date = models.DateField()
     end_date = models.DateField()
-    default_team = models.ForeignKey(
-        "Team",
-        on_delete=models.SET_NULL,
-        related_name="+",
-        null=True,
-        blank=True,
-    )
 
     class Meta:
         ordering = ["-start_date", "-pk"]
@@ -51,11 +41,6 @@ class Season(models.Model):
         super().clean()
         if self.end_date < self.start_date:
             raise ValidationError({"end_date": "A season must end after it starts."})
-        default_team = self.default_team
-        if default_team is not None and default_team.season_id != self.pk:
-            raise ValidationError(
-                {"default_team": "The default team must belong to this season."}
-            )
 
 
 class Team(models.Model):
@@ -84,6 +69,13 @@ class Team(models.Model):
 
 
 class Defaults(models.Model):
+    default_club = models.ForeignKey(
+        Club,
+        on_delete=models.PROTECT,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
     default_season = models.ForeignKey(
         Season,
         on_delete=models.PROTECT,
@@ -91,28 +83,27 @@ class Defaults(models.Model):
         null=True,
         blank=True,
     )
-    default_team = models.ForeignKey(
-        Team,
-        on_delete=models.PROTECT,
-        related_name="+",
-        null=True,
-        blank=True,
-    )
+    default_age_group = models.CharField(max_length=20, blank=True)
 
     def __str__(self) -> str:
         return "Defaults"
 
     def clean(self) -> None:
         super().clean()
+        default_club = self.default_club
         default_season = self.default_season
-        default_team = self.default_team
         if (
-            default_season is not None
-            and default_team is not None
-            and default_team.season_id != default_season.pk
+            default_club is not None
+            and default_season is not None
+            and self.default_age_group
+            and not Team.objects.filter(
+                club=default_club,
+                season=default_season,
+                age_group__iexact=self.default_age_group,
+            ).exists()
         ):
             raise ValidationError(
-                {"default_team": "The default team must belong to the default season."}
+                "The configured defaults must resolve to an existing team."
             )
 
 

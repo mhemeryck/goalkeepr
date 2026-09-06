@@ -100,33 +100,15 @@ def test_team_identity_is_unique_within_club_and_season() -> None:
 
 
 @pytest.mark.django_db
-def test_season_default_team_must_belong_to_that_season() -> None:
+def test_defaults_must_resolve_to_an_existing_team() -> None:
     team = make_team()
-    other_season = tracker.models.Season.objects.create(
-        name="2025-2026",
-        start_date=date(2025, 7, 1),
-        end_date=date(2026, 6, 30),
-        default_team=team,
-    )
-
-    with pytest.raises(ValidationError, match="default team"):
-        other_season.full_clean()
-
-
-@pytest.mark.django_db
-def test_defaults_team_must_belong_to_default_season() -> None:
-    team = make_team()
-    other_season = tracker.models.Season.objects.create(
-        name="2025-2026",
-        start_date=date(2025, 7, 1),
-        end_date=date(2026, 6, 30),
-    )
     defaults = tracker.models.Defaults(
-        default_season=other_season,
-        default_team=team,
+        default_club=team.club,
+        default_season=team.season,
+        default_age_group="U12",
     )
 
-    with pytest.raises(ValidationError, match="default team"):
+    with pytest.raises(ValidationError, match="existing team"):
         defaults.full_clean()
 
 
