@@ -89,6 +89,10 @@ class Player(models.Model):
 
 
 class TeamMembership(models.Model):
+    if typing.TYPE_CHECKING:
+        player_id: int
+        team_id: int
+
     player = models.ForeignKey(
         Player,
         on_delete=models.CASCADE,
@@ -173,6 +177,10 @@ class ScoreEvent(models.Model):
     class Side(models.TextChoices):
         HOME = "home", gettext_lazy("Home")
         AWAY = "away", gettext_lazy("Away")
+
+    if typing.TYPE_CHECKING:
+        match_id: int
+        scorer_id: int | None
 
     match = models.ForeignKey(
         Match, on_delete=models.CASCADE, related_name="score_events"
