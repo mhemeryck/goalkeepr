@@ -32,7 +32,7 @@ def make_match() -> tracker.models.Match:
 def test_season_derives_its_label_and_dates_from_start_year() -> None:
     season = tracker.models.Season.YEAR_2026
 
-    assert tracker.models.Season.values == list(range(2015, 2034))
+    assert tracker.models.Season.values == list(range(2022, 2034))
     assert season.label == "2026-2027"
     assert season.start_date == date(2026, 7, 1)
     assert season.end_date == date(2027, 6, 30)

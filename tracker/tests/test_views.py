@@ -649,7 +649,8 @@ def test_season_fields_offer_the_fixed_year_range(client: Client, user: User) ->
 
     response = client.get(reverse("team-create"))
 
-    assert '<option value="2015">2015-2016</option>' in response.text
+    assert '<option value="2021">2021-2022</option>' not in response.text
+    assert '<option value="2022">2022-2023</option>' in response.text
     assert '<option value="2033">2033-2034</option>' in response.text
 
 
