@@ -22,7 +22,7 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
         **kwargs: typing.Any,
     ) -> None:
         super().__init__(*args, **kwargs)
-        teams = tracker.models.Team.objects.select_related("club", "season")
+        teams = tracker.models.Team.objects.select_related("club")
         typing.cast(
             forms.ModelChoiceField[tracker.models.Team], self.fields["home_team"]
         ).queryset = teams
@@ -168,7 +168,6 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
         super().__init__(*args, **kwargs)
         typing.cast(forms.ChoiceField, self.fields["season"]).choices = season_choices
         self.fields["club_name"].widget.attrs["list"] = "clubs"
-        self.fields["age_group"].widget.attrs["list"] = "age-groups"
         if not self.is_bound and self.instance.pk:
             self.fields["club_name"].initial = self.instance.club.name
 
@@ -179,22 +178,22 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
             self.instance.club = club
         return name
 
-    def clean_season(self) -> tracker.models.Season:
+    def clean_season(self) -> int:
         try:
-            return tracker.models.Season.objects.get(pk=self.cleaned_data["season"])
-        except tracker.models.Season.DoesNotExist:
+            return tracker.models.Season(int(self.cleaned_data["season"])).value
+        except (TypeError, ValueError):
             raise forms.ValidationError("Select a valid season.") from None
 
     def clean(self) -> dict[str, typing.Any]:
         cleaned_data = super().clean() or {}
         club_name = cleaned_data.get("club_name")
         season = cleaned_data.get("season")
-        age_group = str(cleaned_data.get("age_group", "")).strip()
+        age_group = cleaned_data.get("age_group")
         if club_name and season is not None and age_group:
             duplicate = tracker.models.Team.objects.filter(
                 club__name__iexact=club_name,
                 season=season,
-                age_group__iexact=age_group,
+                age_group=age_group,
             )
             if self.instance.pk:
                 duplicate = duplicate.exclude(pk=self.instance.pk)
@@ -239,9 +238,10 @@ class DefaultsForm(forms.ModelForm[tracker.models.Defaults]):
             ("", "No default season"),
             *season_choices,
         ]
-        self.fields["default_age_group"].widget.attrs.update(
-            {"list": "age-groups", "placeholder": "No default age group"}
-        )
+        typing.cast(forms.ChoiceField, self.fields["default_age_group"]).choices = [
+            ("", "No default age group"),
+            *tracker.models.AgeGroup.choices,
+        ]
 
     def clean_default_club(self) -> tracker.models.Club | None:
         value = self.cleaned_data["default_club"]
@@ -252,13 +252,13 @@ class DefaultsForm(forms.ModelForm[tracker.models.Defaults]):
         except tracker.models.Club.DoesNotExist:
             raise forms.ValidationError("Select a valid default club.") from None
 
-    def clean_default_season(self) -> tracker.models.Season | None:
+    def clean_default_season(self) -> int | None:
         value = self.cleaned_data["default_season"]
         if not value:
             return None
         try:
-            return tracker.models.Season.objects.get(pk=value)
-        except tracker.models.Season.DoesNotExist:
+            return tracker.models.Season(int(value)).value
+        except (TypeError, ValueError):
             raise forms.ValidationError("Select a valid default season.") from None
 
 

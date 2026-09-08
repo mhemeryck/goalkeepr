@@ -24,9 +24,6 @@
         {{ form.default_age_group.label_tag }}
         {{ form.default_age_group }}
         {{ form.default_age_group.errors }}
-        <datalist id="age-groups">
-          {% for age_group in age_groups %}<option value="{{ age_group }}"></option>{% endfor %}
-        </datalist>
       </p>
       <button type="submit">Save defaults</button>
     </form>

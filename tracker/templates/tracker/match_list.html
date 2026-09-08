@@ -19,7 +19,7 @@
       <span class="visually-hidden">Season</span>
       <select name="season">
         <option value="all"{% if selected_season == "all" %} selected{% endif %}>All seasons</option>
-        {% for season in seasons %}<option value="{{ season.pk }}"{% if selected_season == season.pk|stringformat:"s" %} selected{% endif %}>{{ season }}</option>{% endfor %}
+        {% for season, label in seasons %}<option value="{{ season }}"{% if selected_season == season|stringformat:"s" %} selected{% endif %}>{{ label }}</option>{% endfor %}
       </select>
     </label>
     <label>

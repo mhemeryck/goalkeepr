@@ -5,7 +5,7 @@
   <section class="form-card">
     <p class="eyebrow">Goalkeepr</p>
     <h1>{{ title }}</h1>
-    <p class="form-context">{{ default_team }} &middot; {{ default_team.season }}</p>
+    <p class="form-context">{{ default_team }} &middot; {{ default_team.get_season_display }}</p>
     <form method="post">
       {% csrf_token %}
       {{ form.non_field_errors }}

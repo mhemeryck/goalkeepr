@@ -98,19 +98,14 @@ def test_match_list_defaults_to_current_season(
     opponent_team: tracker.models.Team,
 ) -> None:
     current_match = make_match(primary_team, opponent_team)
-    previous_season = tracker.models.Season.objects.create(
-        name="2025-2026",
-        start_date=date(2025, 7, 1),
-        end_date=date(2026, 6, 30),
-    )
     old_home = tracker.models.Team.objects.create(
         club=primary_team.club,
-        season=previous_season,
+        season=tracker.models.Season.YEAR_2025,
         age_group="U10",
     )
     old_away = tracker.models.Team.objects.create(
         club=opponent_team.club,
-        season=previous_season,
+        season=tracker.models.Season.YEAR_2025,
         age_group="U10",
     )
     old_match = tracker.models.Match.objects.create(
@@ -148,14 +143,9 @@ def test_defaults_view_limits_teams_to_the_selected_season(
     user: User,
     primary_team: tracker.models.Team,
 ) -> None:
-    other_season = tracker.models.Season.objects.create(
-        name="2025-2026",
-        start_date=date(2025, 7, 1),
-        end_date=date(2026, 6, 30),
-    )
     tracker.models.Team.objects.create(
         club=primary_team.club,
-        season=other_season,
+        season=tracker.models.Season.YEAR_2025,
         age_group="U10",
     )
     client.force_login(user)
@@ -180,7 +170,7 @@ def test_defaults_can_be_changed_as_club_season_and_age_group(
         reverse("defaults-edit"),
         {
             "default_club": primary_team.club_id,
-            "default_season": primary_team.season_id,
+            "default_season": primary_team.season,
             "default_age_group": primary_team.age_group,
         },
     )
@@ -595,7 +585,7 @@ def test_team_club_edit_reassigns_team_without_renaming_shared_club(
         reverse("team-edit", args=[opponent_team.pk]),
         {
             "club_name": primary_team.club.name,
-            "season": primary_team.season_id,
+            "season": primary_team.season,
             "age_group": "U10",
         },
     )
@@ -651,6 +641,16 @@ def test_club_with_teams_cannot_be_deleted(
     assert response.status_code == 409
     assert "has teams" in response.text
     assert tracker.models.Club.objects.filter(pk=opponent_team.club_id).exists()
+
+
+@pytest.mark.django_db
+def test_season_fields_offer_the_fixed_year_range(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("team-create"))
+
+    assert '<option value="2015">2015-2016</option>' in response.text
+    assert '<option value="2033">2033-2034</option>' in response.text
 
 
 @pytest.mark.django_db
@@ -745,7 +745,7 @@ def test_match_creation_can_add_an_opponent_before_selecting_it(
         f"{reverse('team-create')}?next=match-create",
         {
             "club_name": "New United",
-            "season": primary_team.season_id,
+            "season": primary_team.season,
             "age_group": primary_team.age_group,
         },
     )
@@ -769,7 +769,7 @@ def test_team_creation_uses_editable_defaults(
 
     assert response.status_code == 200
     assert f'value="{primary_team.club.name}"' in response.text
-    assert f'value="{primary_team.season_id}" selected' in response.text
+    assert f'value="{primary_team.season}" selected' in response.text
     assert f'value="{primary_team.age_group}"' in response.text
 
 
@@ -794,25 +794,23 @@ def test_application_forms_do_not_render_generic_empty_options(
 
 
 @pytest.mark.django_db
-def test_team_age_group_field_offers_existing_values(
+def test_age_group_fields_offer_the_fixed_range(
     client: Client,
     user: User,
     primary_team: tracker.models.Team,
     opponent_team: tracker.models.Team,
 ) -> None:
-    opponent_team.age_group = "U10"
-    opponent_team.save(update_fields=["age_group"])
     client.force_login(user)
 
-    response = client.get(reverse("team-edit", args=[primary_team.pk]))
+    team_response = client.get(reverse("team-edit", args=[primary_team.pk]))
+    defaults_response = client.get(reverse("defaults-edit"))
 
-    assert response.status_code == 200
-    assert 'list="clubs"' in response.text
-    assert 'list="age-groups"' in response.text
-    assert '<datalist id="clubs">' in response.text
-    assert f'<option value="{opponent_team.club.name}">' in response.text
-    assert '<option value="U10">' in response.text
-    assert '<option value="U11">' in response.text
+    assert team_response.status_code == 200
+    assert '<select name="age_group"' in team_response.text
+    assert '<option value="U6">U6</option>' in team_response.text
+    assert '<option value="U18">U18</option>' in team_response.text
+    assert 'list="age-groups"' not in team_response.text
+    assert '<select name="default_age_group"' in defaults_response.text
 
 
 @pytest.mark.django_db
@@ -880,7 +878,7 @@ def test_club_pages_group_seasonal_teams(
     assert primary_team.club.name in list_response.text
     assert reverse("club-detail", args=[primary_team.club_id]) in list_response.text
     assert detail_response.status_code == 200
-    assert primary_team.season.name in detail_response.text
+    assert primary_team.get_season_display() in detail_response.text
     assert reverse("team-detail", args=[primary_team.pk]) in detail_response.text
 
 
@@ -925,7 +923,7 @@ def test_player_detail_shows_memberships_and_goals(
 
     assert response.status_code == 200
     assert str(primary_team) in response.text
-    assert primary_team.season.name in response.text
+    assert primary_team.get_season_display() in response.text
     assert reverse("team-detail", args=[primary_team.pk]) in response.text
     assert reverse("match-detail", args=[match.pk]) in response.text
 

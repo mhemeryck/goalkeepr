@@ -14,13 +14,9 @@ def make_team(
     age_group: str = "U11",
 ) -> tracker.models.Team:
     club = tracker.models.Club.objects.create(name=club_name)
-    season, _ = tracker.models.Season.objects.get_or_create(
-        name="2026-2027",
-        defaults={"start_date": date(2026, 7, 1), "end_date": date(2027, 6, 30)},
-    )
     return tracker.models.Team.objects.create(
         club=club,
-        season=season,
+        season=tracker.models.Season.YEAR_2026,
         age_group=age_group,
     )
 
@@ -31,6 +27,19 @@ def make_match() -> tracker.models.Match:
         away_team=make_team(),
         match_date=date(2026, 8, 16),
     )
+
+
+def test_season_derives_its_label_and_dates_from_start_year() -> None:
+    season = tracker.models.Season.YEAR_2026
+
+    assert tracker.models.Season.values == list(range(2015, 2034))
+    assert season.label == "2026-2027"
+    assert season.start_date == date(2026, 7, 1)
+    assert season.end_date == date(2027, 6, 30)
+
+
+def test_age_group_choices_cover_u6_through_u18() -> None:
+    assert tracker.models.AgeGroup.values == [f"U{age}" for age in range(6, 19)]
 
 
 @pytest.mark.django_db
@@ -170,14 +179,9 @@ def test_score_event_occurrence_time_is_optional() -> None:
 @pytest.mark.django_db
 def test_match_teams_must_belong_to_same_season() -> None:
     match = make_match()
-    other_season = tracker.models.Season.objects.create(
-        name="2025-2026",
-        start_date=date(2025, 7, 1),
-        end_date=date(2026, 6, 30),
-    )
     match.away_team = tracker.models.Team.objects.create(
         club=match.away_team.club,
-        season=other_season,
+        season=tracker.models.Season.YEAR_2025,
         age_group="U10",
     )
 

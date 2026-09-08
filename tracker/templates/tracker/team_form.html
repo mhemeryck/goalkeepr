@@ -27,9 +27,6 @@
       <datalist id="clubs">
         {% for club_name in club_names %}<option value="{{ club_name }}"></option>{% endfor %}
       </datalist>
-      <datalist id="age-groups">
-        {% for age_group in age_groups %}<option value="{{ age_group }}"></option>{% endfor %}
-      </datalist>
       <div class="form-actions">
         <button type="submit">Save</button>
         <a role="button" class="secondary" href="{{ cancel_url }}">Cancel</a>

@@ -15,15 +15,8 @@ def other_user(db: None) -> User:
 
 
 @pytest.fixture
-def season(db: None) -> tracker.models.Season:
-    season, _ = tracker.models.Season.objects.get_or_create(
-        name="2026-2027",
-        defaults={
-            "start_date": "2026-07-01",
-            "end_date": "2027-06-30",
-        },
-    )
-    return season
+def season() -> tracker.models.Season:
+    return tracker.models.Season.YEAR_2026
 
 
 @pytest.fixture

@@ -70,9 +70,7 @@ def _scored_matches(
 ) -> QuerySet[tracker.models.Match]:
     return queryset.select_related(
         "home_team__club",
-        "home_team__season",
         "away_team__club",
-        "away_team__season",
     ).annotate(
         home_score_value=Count(
             "score_events",
@@ -86,14 +84,14 @@ def _scored_matches(
 
 
 async def _match_list_context(request: HttpRequest) -> dict[str, typing.Any]:
-    seasons = [season async for season in tracker.models.Season.objects.all()]
+    seasons = tracker.models.Season.choices
     defaults = await _defaults()
     default_team = await _resolve_default_team(defaults)
     selected_season = request.GET.get("season")
     if selected_season is None:
         selected_season = (
-            str(defaults.default_season_id)
-            if defaults is not None and defaults.default_season_id is not None
+            str(defaults.default_season)
+            if defaults is not None and defaults.default_season is not None
             else "all"
         )
     queryset = tracker.models.Match.objects.all()
@@ -102,29 +100,31 @@ async def _match_list_context(request: HttpRequest) -> dict[str, typing.Any]:
         try:
             season_id = int(selected_season)
         except ValueError:
-            season_id = defaults.default_season_id if defaults is not None else None
+            season_id = defaults.default_season if defaults is not None else None
             selected_season = str(season_id) if season_id is not None else "all"
         if season_id is not None:
             if (
                 defaults is not None
-                and defaults.default_season_id == season_id
+                and defaults.default_season == season_id
                 and default_team is not None
             ):
                 queryset = queryset.filter(
                     Q(home_team_id=default_team.pk) | Q(away_team_id=default_team.pk)
                 )
             else:
-                queryset = queryset.filter(home_team__season_id=season_id)
+                queryset = queryset.filter(home_team__season=season_id)
     query = request.GET.get("q", "").strip()
     if query:
-        queryset = queryset.filter(
+        match_query = (
             Q(home_team__club__name__icontains=query)
             | Q(away_team__club__name__icontains=query)
             | Q(home_team__age_group__icontains=query)
             | Q(away_team__age_group__icontains=query)
-            | Q(home_team__season__name__icontains=query)
-            | Q(away_team__season__name__icontains=query)
         )
+        for season, label in tracker.models.Season.choices:
+            if query.casefold() in label.casefold():
+                match_query |= Q(home_team__season=season) | Q(away_team__season=season)
+        queryset = queryset.filter(match_query)
     selected_status = request.GET.get("status", "")
     if selected_status in tracker.models.Match.Status.values:
         queryset = queryset.filter(status=selected_status)
@@ -174,14 +174,14 @@ async def _players(team: tracker.models.Team) -> list[tracker.models.Player]:
 
 async def _team_choices() -> list[tuple[int, str]]:
     today = timezone.localdate()
+    current_season = today.year if today.month >= 7 else today.year - 1
     return [
-        (team.pk, f"{team} ({team.season})")
-        async for team in tracker.models.Team.objects.select_related("club", "season")
+        (team.pk, f"{team} ({team.get_season_display()})")
+        async for team in tracker.models.Team.objects.select_related("club")
         .alias(
             current_season_order=Case(
                 When(
-                    season__start_date__lte=today,
-                    season__end_date__gte=today,
+                    season=current_season,
                     then=Value(0),
                 ),
                 default=Value(1),
@@ -189,7 +189,7 @@ async def _team_choices() -> list[tuple[int, str]]:
         )
         .order_by(
             "current_season_order",
-            "-season__start_date",
+            "-season",
             "club__name",
             "age_group",
         )
@@ -202,15 +202,13 @@ async def _team_choices_for_season(season_id: int | None) -> list[tuple[int, str
     return [
         (team.pk, str(team))
         async for team in tracker.models.Team.objects.filter(
-            season_id=season_id
+            season=season_id
         ).select_related("club")
     ]
 
 
 async def _season_choices() -> list[tuple[int, str]]:
-    return [
-        (season.pk, str(season)) async for season in tracker.models.Season.objects.all()
-    ]
+    return list(reversed(tracker.models.Season.choices))
 
 
 async def _club_choices() -> list[tuple[int, str]]:
@@ -224,15 +222,6 @@ async def _set_team_choices(form: tracker.forms.MatchForm) -> None:
             typing.cast(forms.ChoiceField, form.fields[field_name]).choices = choices
 
 
-async def _age_groups() -> list[str]:
-    return [
-        age_group
-        async for age_group in tracker.models.Team.objects.order_by("age_group")
-        .values_list("age_group", flat=True)
-        .distinct()
-    ]
-
-
 async def _club_names() -> list[str]:
     return [
         name
@@ -243,9 +232,7 @@ async def _club_names() -> list[str]:
 
 
 async def _defaults() -> tracker.models.Defaults | None:
-    return await tracker.models.Defaults.objects.select_related(
-        "default_club", "default_season"
-    ).afirst()
+    return await tracker.models.Defaults.objects.select_related("default_club").afirst()
 
 
 async def _resolve_default_team(
@@ -254,16 +241,16 @@ async def _resolve_default_team(
     if (
         defaults is None
         or defaults.default_club_id is None
-        or defaults.default_season_id is None
+        or defaults.default_season is None
         or not defaults.default_age_group
     ):
         return None
     return (
-        await tracker.models.Team.objects.select_related("club", "season")
+        await tracker.models.Team.objects.select_related("club")
         .filter(
             club_id=defaults.default_club_id,
-            season_id=defaults.default_season_id,
-            age_group__iexact=defaults.default_age_group,
+            season=defaults.default_season,
+            age_group=defaults.default_age_group,
         )
         .afirst()
     )
@@ -274,14 +261,14 @@ async def _opponent_team_choices(
     *,
     include_other_contexts: bool = False,
 ) -> list[tuple[int, str]]:
-    teams = tracker.models.Team.objects.select_related("club", "season").exclude(
+    teams = tracker.models.Team.objects.select_related("club").exclude(
         pk=default_team.pk
     )
     if not include_other_contexts:
-        teams = teams.filter(age_group__iexact=default_team.age_group)
+        teams = teams.filter(age_group=default_team.age_group)
     teams = teams.filter(season=default_team.season)
     return [
-        (team.pk, f"{team.club.name} {team.age_group} · {team.season}")
+        (team.pk, f"{team.club.name} {team.age_group} · {team.get_season_display()}")
         async for team in teams
     ]
 
@@ -298,7 +285,7 @@ async def _players_with_goal_counts() -> list[tracker.models.Player]:
 async def _teams_with_results() -> list[TeamResult]:
     results = {
         team.pk: TeamResult(team=team, wins=0, draws=0, losses=0, match_count=0)
-        async for team in tracker.models.Team.objects.select_related("club", "season")
+        async for team in tracker.models.Team.objects.select_related("club")
     }
     matches = [
         match async for match in _scored_matches(tracker.models.Match.objects.all())
@@ -474,7 +461,7 @@ async def player_detail(request: HttpRequest, pk: int) -> HttpResponse:
         membership
         async for membership in tracker.models.TeamMembership.objects.filter(
             player=player
-        ).select_related("team__club", "team__season")
+        ).select_related("team__club")
     ]
     events = [
         event
@@ -482,9 +469,7 @@ async def player_detail(request: HttpRequest, pk: int) -> HttpResponse:
             scorer=player
         ).select_related(
             "match__home_team__club",
-            "match__home_team__season",
             "match__away_team__club",
-            "match__away_team__season",
         )
     ]
     return render(
@@ -563,7 +548,7 @@ async def team_create(request: HttpRequest) -> HttpResponse:
             "club_name": (
                 defaults.default_club.name if defaults.default_club is not None else ""
             ),
-            "season": defaults.default_season_id,
+            "season": defaults.default_season,
             "age_group": defaults.default_age_group,
         }
     form = tracker.forms.TeamForm(
@@ -588,7 +573,6 @@ async def team_create(request: HttpRequest) -> HttpResponse:
                 else reverse("team-list")
             ),
             "club_names": await _club_names(),
-            "age_groups": await _age_groups(),
         },
         status=400 if form.is_bound else 200,
     )
@@ -639,9 +623,7 @@ async def club_list(request: HttpRequest) -> HttpResponse:
         async for club in tracker.models.Club.objects.prefetch_related(
             Prefetch(
                 "teams",
-                queryset=tracker.models.Team.objects.select_related("season").order_by(
-                    "-season__start_date", "age_group"
-                ),
+                queryset=tracker.models.Team.objects.order_by("-season", "age_group"),
                 to_attr="seasonal_teams",
             )
         )
@@ -670,9 +652,7 @@ async def club_detail(request: HttpRequest, pk: int) -> HttpResponse:
         club = await tracker.models.Club.objects.prefetch_related(
             Prefetch(
                 "teams",
-                queryset=tracker.models.Team.objects.select_related("season").order_by(
-                    "-season__start_date", "age_group"
-                ),
+                queryset=tracker.models.Team.objects.order_by("-season", "age_group"),
                 to_attr="seasonal_teams",
             )
         ).aget(pk=pk)
@@ -740,7 +720,7 @@ async def defaults_edit(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "tracker/defaults_form.html",
-        {"form": form, "age_groups": await _age_groups()},
+        {"form": form},
         status=400 if form.is_bound else 200,
     )
 
@@ -775,7 +755,6 @@ async def team_edit(request: HttpRequest, pk: int) -> HttpResponse:
             "title": "Edit team",
             "form": form,
             "cancel_url": reverse("team-detail", args=[team.pk]),
-            "age_groups": await _age_groups(),
             "club_names": await _club_names(),
         },
         status=400 if form.is_bound else 200,
@@ -849,7 +828,7 @@ async def match_create(request: HttpRequest) -> HttpResponse:
 
 async def _get_match(pk: int) -> tracker.models.Match:
     return await tracker.models.Match.objects.select_related(
-        "home_team__club", "home_team__season", "away_team__club", "away_team__season"
+        "home_team__club", "away_team__club"
     ).aget(pk=pk)
 
 

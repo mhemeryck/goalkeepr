@@ -17,7 +17,7 @@
         {% for membership in memberships %}
           <article>
             <h3><a href="{% url 'team-detail' membership.team_id %}">{{ membership.team }}</a></h3>
-            <p>{{ membership.team.season }}</p>
+            <p>{{ membership.team.get_season_display }}</p>
           </article>
         {% endfor %}
       </div>

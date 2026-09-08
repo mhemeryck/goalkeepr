@@ -46,7 +46,9 @@ def test_opponent_names_migrate_to_case_insensitive_teams() -> None:
     assert len(restored_names) == 1
     assert restored_names.pop().casefold() == "united"
 
-    MigrationExecutor(connection).migrate([("tracker", "0003_match_enhancements")])
+    MigrationExecutor(connection).migrate(
+        [("tracker", "0007_replace_season_with_year_choices")]
+    )
 
 
 @pytest.mark.django_db(transaction=True)
@@ -125,4 +127,88 @@ def test_current_data_migrates_to_u11_club_team_domain() -> None:
     restored_match = restored_apps.get_model("tracker", "Match")
     assert restored_match.objects.get(pk=finished_match.pk).opponent_id is not None
 
-    MigrationExecutor(connection).migrate([("tracker", "0004_expand_match_domain")])
+    MigrationExecutor(connection).migrate(
+        [("tracker", "0007_replace_season_with_year_choices")]
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_season_records_migrate_to_year_choices() -> None:
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0006_remove_defaults_default_team_and_more")])
+    old_apps = executor.loader.project_state(
+        [("tracker", "0006_remove_defaults_default_team_and_more")]
+    ).apps
+    club_model = old_apps.get_model("tracker", "Club")
+    season_model = old_apps.get_model("tracker", "Season")
+    team_model = old_apps.get_model("tracker", "Team")
+    defaults_model = old_apps.get_model("tracker", "Defaults")
+    club = club_model.objects.create(name="Migration United")
+    season = season_model.objects.create(
+        name="2020-2021",
+        start_date=date(2020, 7, 1),
+        end_date=date(2021, 6, 30),
+    )
+    team = team_model.objects.create(club=club, season=season, age_group="U11")
+    defaults_model.objects.create(default_club=club, default_season=season)
+
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0007_replace_season_with_year_choices")])
+    new_apps = executor.loader.project_state(
+        [("tracker", "0007_replace_season_with_year_choices")]
+    ).apps
+    migrated_team = new_apps.get_model("tracker", "Team").objects.get(pk=team.pk)
+    migrated_defaults = new_apps.get_model("tracker", "Defaults").objects.get()
+
+    assert migrated_team.season == 2020
+    assert migrated_defaults.default_season == 2020
+    with pytest.raises(LookupError):
+        new_apps.get_model("tracker", "Season")
+
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0006_remove_defaults_default_team_and_more")])
+    restored_apps = executor.loader.project_state(
+        [("tracker", "0006_remove_defaults_default_team_and_more")]
+    ).apps
+    restored_team = restored_apps.get_model("tracker", "Team").objects.get(pk=team.pk)
+
+    assert restored_team.season.start_date == date(2020, 7, 1)
+    assert restored_team.season.end_date == date(2021, 6, 30)
+
+    MigrationExecutor(connection).migrate(
+        [("tracker", "0007_replace_season_with_year_choices")]
+    )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_age_group_values_migrate_to_fixed_choices() -> None:
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0007_replace_season_with_year_choices")])
+    old_apps = executor.loader.project_state(
+        [("tracker", "0007_replace_season_with_year_choices")]
+    ).apps
+    club_model = old_apps.get_model("tracker", "Club")
+    team_model = old_apps.get_model("tracker", "Team")
+    defaults_model = old_apps.get_model("tracker", "Defaults")
+    club = club_model.objects.create(name="Age Group United")
+    team = team_model.objects.create(club=club, season=2026, age_group="u11")
+    defaults_model.objects.create(
+        default_club=club,
+        default_season=2026,
+        default_age_group="u11",
+    )
+
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0008_replace_age_group_with_choices")])
+    new_apps = executor.loader.project_state(
+        [("tracker", "0008_replace_age_group_with_choices")]
+    ).apps
+    migrated_team = new_apps.get_model("tracker", "Team").objects.get(pk=team.pk)
+    migrated_defaults = new_apps.get_model("tracker", "Defaults").objects.get()
+
+    assert migrated_team.age_group == "U11"
+    assert migrated_defaults.default_age_group == "U11"
+
+    MigrationExecutor(connection).migrate(
+        [("tracker", "0008_replace_age_group_with_choices")]
+    )

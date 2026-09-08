@@ -1,4 +1,5 @@
 import typing
+from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -26,34 +27,62 @@ class Club(models.Model):
         return self.name
 
 
-class Season(models.Model):
-    name = models.CharField(max_length=20, unique=True)
-    start_date = models.DateField()
-    end_date = models.DateField()
+class Season(models.IntegerChoices):
+    YEAR_2015 = 2015, "2015-2016"
+    YEAR_2016 = 2016, "2016-2017"
+    YEAR_2017 = 2017, "2017-2018"
+    YEAR_2018 = 2018, "2018-2019"
+    YEAR_2019 = 2019, "2019-2020"
+    YEAR_2020 = 2020, "2020-2021"
+    YEAR_2021 = 2021, "2021-2022"
+    YEAR_2022 = 2022, "2022-2023"
+    YEAR_2023 = 2023, "2023-2024"
+    YEAR_2024 = 2024, "2024-2025"
+    YEAR_2025 = 2025, "2025-2026"
+    YEAR_2026 = 2026, "2026-2027"
+    YEAR_2027 = 2027, "2027-2028"
+    YEAR_2028 = 2028, "2028-2029"
+    YEAR_2029 = 2029, "2029-2030"
+    YEAR_2030 = 2030, "2030-2031"
+    YEAR_2031 = 2031, "2031-2032"
+    YEAR_2032 = 2032, "2032-2033"
+    YEAR_2033 = 2033, "2033-2034"
 
-    class Meta:
-        ordering = ["-start_date", "-pk"]
+    @property
+    def start_date(self) -> date:
+        return date(self.value, 7, 1)
 
-    def __str__(self) -> str:
-        return self.name
+    @property
+    def end_date(self) -> date:
+        return date(self.value + 1, 6, 30)
 
-    def clean(self) -> None:
-        super().clean()
-        if self.end_date < self.start_date:
-            raise ValidationError({"end_date": "A season must end after it starts."})
+
+class AgeGroup(models.TextChoices):
+    U6 = "U6", "U6"
+    U7 = "U7", "U7"
+    U8 = "U8", "U8"
+    U9 = "U9", "U9"
+    U10 = "U10", "U10"
+    U11 = "U11", "U11"
+    U12 = "U12", "U12"
+    U13 = "U13", "U13"
+    U14 = "U14", "U14"
+    U15 = "U15", "U15"
+    U16 = "U16", "U16"
+    U17 = "U17", "U17"
+    U18 = "U18", "U18"
 
 
 class Team(models.Model):
     if typing.TYPE_CHECKING:
         club_id: int
-        season_id: int
         home_matches: models.Manager[Match]
         away_matches: models.Manager[Match]
         memberships: models.Manager[TeamMembership]
 
     club = models.ForeignKey(Club, on_delete=models.PROTECT, related_name="teams")
-    season = models.ForeignKey(Season, on_delete=models.PROTECT, related_name="teams")
-    age_group = models.CharField(max_length=20)
+    season = models.PositiveSmallIntegerField(choices=Season.choices)
+    age_group = models.CharField(max_length=3, choices=AgeGroup.choices)
 
     class Meta:
         ordering = ["club__name", "age_group", "pk"]
@@ -76,14 +105,16 @@ class Defaults(models.Model):
         null=True,
         blank=True,
     )
-    default_season = models.ForeignKey(
-        Season,
-        on_delete=models.PROTECT,
-        related_name="+",
+    default_season = models.PositiveSmallIntegerField(
+        choices=Season.choices,
         null=True,
         blank=True,
     )
-    default_age_group = models.CharField(max_length=20, blank=True)
+    default_age_group = models.CharField(
+        max_length=3,
+        choices=AgeGroup.choices,
+        blank=True,
+    )
 
     def __str__(self) -> str:
         return "Defaults"
@@ -99,7 +130,7 @@ class Defaults(models.Model):
             and not Team.objects.filter(
                 club=default_club,
                 season=default_season,
-                age_group__iexact=self.default_age_group,
+                age_group=self.default_age_group,
             ).exists()
         ):
             raise ValidationError(
@@ -210,7 +241,7 @@ class Match(models.Model):
         if (
             self.home_team_id is not None
             and self.away_team_id is not None
-            and self.home_team.season_id != self.away_team.season_id
+            and self.home_team.season != self.away_team.season
         ):
             raise ValidationError("Home and away teams must belong to the same season.")
 

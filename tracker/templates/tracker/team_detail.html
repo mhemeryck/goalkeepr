@@ -5,7 +5,7 @@
 {% block content %}
   <div class="page-heading">
     <div>
-      <p class="eyebrow"><a href="{% url 'club-detail' team.club_id %}">{{ team.club.name }}</a> &middot; {{ team.season }}</p>
+      <p class="eyebrow"><a href="{% url 'club-detail' team.club_id %}">{{ team.club.name }}</a> &middot; {{ team.get_season_display }}</p>
       <h1>{{ team.age_group }}</h1>
     </div>
     <a role="button" class="secondary" href="{% url 'team-edit' team.pk %}">Edit team</a>
