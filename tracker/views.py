@@ -258,15 +258,14 @@ async def _resolve_default_team(
 
 async def _opponent_team_choices(
     default_team: tracker.models.Team,
-    *,
-    include_other_contexts: bool = False,
 ) -> list[tuple[int, str]]:
     teams = tracker.models.Team.objects.select_related("club").exclude(
         pk=default_team.pk
     )
-    if not include_other_contexts:
-        teams = teams.filter(age_group=default_team.age_group)
-    teams = teams.filter(season=default_team.season)
+    teams = teams.filter(
+        season=default_team.season,
+        age_group=default_team.age_group,
+    )
     return [
         (team.pk, f"{team.club.name} {team.age_group} · {team.get_season_display()}")
         async for team in teams
@@ -541,7 +540,15 @@ async def team_list(request: HttpRequest) -> HttpResponse:
 @login_required
 async def team_create(request: HttpRequest) -> HttpResponse:
     request.user = await request.auser()
+    next_page = request.GET.get("next")
+    is_modal = request.headers.get("HX-Request") == "true" and next_page in {
+        "match-create",
+        "team-list",
+    }
     defaults = await _defaults()
+    required_context = (
+        await _resolve_default_team(defaults) if next_page == "match-create" else None
+    )
     initial: dict[str, typing.Any] = {}
     if defaults is not None:
         initial = {
@@ -555,21 +562,41 @@ async def team_create(request: HttpRequest) -> HttpResponse:
         request.POST or None,
         initial=initial,
         season_choices=await _season_choices(),
+        required_context=required_context,
     )
     if request.method == "POST" and await _form_is_valid(form):
         team = await sync_to_async(form.save)()
-        if request.GET.get("next") == "match-create":
+        if is_modal and next_page == "match-create" and required_context is not None:
+            return render(
+                request,
+                "tracker/partials/team_created_for_match.html",
+                {
+                    "opponent_choices": await _opponent_team_choices(required_context),
+                    "opponent_team": team,
+                },
+            )
+        if is_modal and next_page == "team-list":
+            response = HttpResponse(status=204)
+            response["HX-Refresh"] = "true"
+            return response
+        if next_page == "match-create":
             return redirect(f"{reverse('match-create')}?opponent={team.pk}")
         return redirect("team-detail", pk=team.pk)
+    template_name = (
+        "tracker/partials/team_form_modal.html"
+        if is_modal
+        else "tracker/team_form.html"
+    )
     return render(
         request,
-        "tracker/team_form.html",
+        template_name,
         {
             "form": form,
-            "title": "Add opponent team" if request.GET.get("next") else "Add team",
+            "title": "Add opponent team" if next_page == "match-create" else "Add team",
+            "is_modal": is_modal,
             "cancel_url": (
                 reverse("match-create")
-                if request.GET.get("next") == "match-create"
+                if next_page == "match-create"
                 else reverse("team-list")
             ),
             "club_names": await _club_names(),
@@ -799,11 +826,7 @@ async def match_create(request: HttpRequest) -> HttpResponse:
             f'<a href="{reverse("defaults-edit")}">Configure defaults</a>.',
             status=409,
         )
-    show_all_teams = request.GET.get("all_teams") == "1"
-    opponent_choices = await _opponent_team_choices(
-        default_team,
-        include_other_contexts=show_all_teams,
-    )
+    opponent_choices = await _opponent_team_choices(default_team)
     form = tracker.forms.MatchCreateForm(
         request.POST or None,
         default_team=default_team,
@@ -820,7 +843,6 @@ async def match_create(request: HttpRequest) -> HttpResponse:
             "form": form,
             "title": "Add match",
             "default_team": default_team,
-            "show_all_teams": show_all_teams,
         },
         status=400 if form.is_bound else 200,
     )

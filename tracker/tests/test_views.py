@@ -673,7 +673,7 @@ def test_match_creation_defaults_to_opponent_and_home_away_flow(
 
 
 @pytest.mark.django_db
-def test_match_opponents_are_filtered_by_defaults_with_an_override(
+def test_match_opponents_are_filtered_by_default_context(
     client: Client,
     user: User,
     primary_team: tracker.models.Team,
@@ -687,11 +687,10 @@ def test_match_opponents_are_filtered_by_defaults_with_an_override(
     client.force_login(user)
 
     response = client.get(reverse("match-create"))
-    override_response = client.get(reverse("match-create"), {"all_teams": "1"})
 
     assert f'value="{opponent_team.pk}"' in response.text
     assert f'value="{other_team.pk}"' not in response.text
-    assert f'value="{other_team.pk}"' in override_response.text
+    assert "Choose a different age group" not in response.text
 
 
 @pytest.mark.django_db
@@ -756,6 +755,103 @@ def test_match_creation_can_add_an_opponent_before_selecting_it(
     assert response["Location"] == f"{reverse('match-create')}?opponent={team.pk}"
     assert team.season == primary_team.season
     assert team.age_group == primary_team.age_group
+
+
+@pytest.mark.django_db
+def test_add_match_uses_a_modal_opponent_form_and_default_context(
+    client: Client,
+    user: User,
+) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
+    assert 'id="team-form-modal"' in response.text
+    assert 'hx-target="#team-form-modal"' in response.text
+    assert "Add opponent team" in response.text
+    assert "Choose a different age group" not in response.text
+
+
+@pytest.mark.django_db
+def test_match_creation_rejects_an_opponent_outside_default_context(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    other_context_team = tracker.models.Team.objects.create(
+        club=tracker.models.Club.objects.create(name="Different age"),
+        season=primary_team.season,
+        age_group="U12",
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-create"),
+        {
+            "opponent_team": other_context_team.pk,
+            "is_home": "true",
+            "match_date": "2026-08-16",
+            "notes": "",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "default season and age group" in response.text
+    assert not tracker.models.Match.objects.exists()
+
+
+@pytest.mark.django_db
+def test_htmx_opponent_creation_selects_the_new_team(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+    url = f"{reverse('team-create')}?next=match-create"
+
+    form_response = client.get(url, headers={"HX-Request": "true"})
+    create_response = client.post(
+        url,
+        {
+            "club_name": "New United",
+            "season": primary_team.season,
+            "age_group": primary_team.age_group,
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    team = tracker.models.Team.objects.get(club__name="New United")
+    assert form_response.status_code == 200
+    assert "<dialog" in form_response.text
+    assert "Goalkeepr" not in form_response.text
+    assert create_response.status_code == 200
+    assert 'hx-swap-oob="outerHTML"' in create_response.text
+    assert f'<option value="{team.pk}" selected>' in create_response.text
+    assert 'id="team-form-modal"' in create_response.text
+
+
+@pytest.mark.django_db
+def test_htmx_team_creation_refreshes_the_teams_overview(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+    teams_response = client.get(reverse("team-list"))
+    url = f"{reverse('team-create')}?next=team-list"
+    create_response = client.post(
+        url,
+        {
+            "club_name": "New United",
+            "season": primary_team.season,
+            "age_group": primary_team.age_group,
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert 'hx-get="/teams/add/?next=team-list"' in teams_response.text
+    assert create_response.status_code == 204
+    assert create_response["HX-Refresh"] == "true"
 
 
 @pytest.mark.django_db

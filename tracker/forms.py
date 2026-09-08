@@ -64,7 +64,7 @@ class MatchForm(forms.ModelForm[tracker.models.Match]):
 
 
 class MatchCreateForm(forms.Form):
-    opponent_team = forms.ChoiceField(label="Opponent team")
+    opponent_team = forms.CharField(label="Opponent team", widget=forms.Select)
     is_home = forms.ChoiceField(
         label="Venue",
         choices=(("true", "Home"), ("false", "Away")),
@@ -90,7 +90,7 @@ class MatchCreateForm(forms.Form):
     ) -> None:
         super().__init__(*args, **kwargs)
         self.default_team = default_team
-        typing.cast(forms.ChoiceField, self.fields["opponent_team"]).choices = [
+        typing.cast(forms.Select, self.fields["opponent_team"].widget).choices = [
             ("", "Select opponent team"),
             *opponent_choices,
         ]
@@ -99,10 +99,17 @@ class MatchCreateForm(forms.Form):
         value = self.cleaned_data["opponent_team"]
         try:
             team = tracker.models.Team.objects.get(pk=value)
-        except tracker.models.Team.DoesNotExist:
+        except tracker.models.Team.DoesNotExist, ValueError:
             raise forms.ValidationError("Select a valid opponent team.") from None
         if team.pk == self.default_team.pk:
             raise forms.ValidationError("The opponent must differ from your team.")
+        if (
+            team.season != self.default_team.season
+            or team.age_group != self.default_team.age_group
+        ):
+            raise forms.ValidationError(
+                "Select a team from the default season and age group."
+            )
         return team
 
 
@@ -163,11 +170,13 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
         self,
         *args: typing.Any,
         season_choices: list[tuple[int, str]],
+        required_context: tracker.models.Team | None = None,
         **kwargs: typing.Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         typing.cast(forms.ChoiceField, self.fields["season"]).choices = season_choices
         self.fields["club_name"].widget.attrs["list"] = "clubs"
+        self.required_context = required_context
         if not self.is_bound and self.instance.pk:
             self.fields["club_name"].initial = self.instance.club.name
 
@@ -181,7 +190,7 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
     def clean_season(self) -> int:
         try:
             return tracker.models.Season(int(self.cleaned_data["season"])).value
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             raise forms.ValidationError("Select a valid season.") from None
 
     def clean(self) -> dict[str, typing.Any]:
@@ -190,6 +199,13 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
         season = cleaned_data.get("season")
         age_group = cleaned_data.get("age_group")
         if club_name and season is not None and age_group:
+            if self.required_context is not None and (
+                season != self.required_context.season
+                or age_group != self.required_context.age_group
+            ):
+                raise forms.ValidationError(
+                    "Opponent teams must use the default season and age group."
+                )
             duplicate = tracker.models.Team.objects.filter(
                 club__name__iexact=club_name,
                 season=season,
@@ -258,7 +274,7 @@ class DefaultsForm(forms.ModelForm[tracker.models.Defaults]):
             return None
         try:
             return tracker.models.Season(int(value)).value
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             raise forms.ValidationError("Select a valid default season.") from None
 
 

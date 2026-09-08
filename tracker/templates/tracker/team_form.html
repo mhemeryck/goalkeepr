@@ -3,34 +3,5 @@
 {% block title %}{{ title }} | Goalkeepr{% endblock %}
 
 {% block content %}
-  <section class="form-card">
-    <p class="eyebrow"><a href="{% url 'team-list' %}">Teams</a></p>
-    <h1>{{ title }}</h1>
-    <form method="post">
-      {% csrf_token %}
-      {{ form.non_field_errors }}
-      <p>
-        {{ form.club_name.label_tag }}
-        {{ form.club_name }}
-        {{ form.club_name.errors }}
-      </p>
-      <p>
-        {{ form.season.label_tag }}
-        {{ form.season }}
-        {{ form.season.errors }}
-      </p>
-      <p>
-        {{ form.age_group.label_tag }}
-        {{ form.age_group }}
-        {{ form.age_group.errors }}
-      </p>
-      <datalist id="clubs">
-        {% for club_name in club_names %}<option value="{{ club_name }}"></option>{% endfor %}
-      </datalist>
-      <div class="form-actions">
-        <button type="submit">Save</button>
-        <a role="button" class="secondary" href="{{ cancel_url }}">Cancel</a>
-      </div>
-    </form>
-  </section>
+  <section class="form-card">{% include "tracker/partials/team_form_fields.html" %}</section>
 {% endblock %}

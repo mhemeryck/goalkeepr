@@ -1,0 +1,11 @@
+<div id="opponent-team-field" hx-swap-oob="outerHTML">
+  <label for="id_opponent_team">Opponent team</label>
+  <select name="opponent_team" id="id_opponent_team">
+    <option value="">Select opponent team</option>
+    {% for team_id, team_label in opponent_choices %}
+      <option value="{{ team_id }}"{% if team_id == opponent_team.pk %} selected{% endif %}>{{ team_label }}</option>
+    {% endfor %}
+  </select>
+  <small>The selected team, season, and age group will be stored with the match.</small>
+</div>
+<div id="team-form-modal" hx-swap-oob="innerHTML"></div>
