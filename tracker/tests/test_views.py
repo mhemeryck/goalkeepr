@@ -980,6 +980,40 @@ def test_club_pages_group_seasonal_teams(
 
 
 @pytest.mark.django_db
+def test_club_detail_can_add_a_team_for_that_club(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+    club_url = reverse("club-detail", args=[primary_team.club_id])
+    team_url = f"{reverse('team-create')}?next=club-detail&club={primary_team.club_id}"
+
+    detail_response = client.get(club_url)
+    form_response = client.get(team_url, headers={"HX-Request": "true"})
+    create_response = client.post(
+        team_url,
+        {
+            "club_name": primary_team.club.name,
+            "season": primary_team.season,
+            "age_group": "U12",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert 'hx-target="#team-form-modal"' in detail_response.text
+    assert f"club={primary_team.club_id}" in detail_response.text
+    assert f'value="{primary_team.club.name}"' in form_response.text
+    assert create_response.status_code == 204
+    assert create_response["HX-Refresh"] == "true"
+    assert tracker.models.Team.objects.filter(
+        club=primary_team.club,
+        season=primary_team.season,
+        age_group="U12",
+    ).exists()
+
+
+@pytest.mark.django_db
 def test_team_detail_shows_roster_and_matches(
     client: Client,
     user: User,

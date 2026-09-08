@@ -9,6 +9,7 @@
       <h1>{{ club.name }}</h1>
     </div>
     <div class="form-actions">
+      <a role="button" href="{% url 'team-create' %}?next=club-detail&club={{ club.pk }}" hx-get="{% url 'team-create' %}?next=club-detail&club={{ club.pk }}" hx-target="#team-form-modal" hx-swap="innerHTML">Add team</a>
       <a role="button" class="secondary" href="{% url 'club-edit' club.pk %}">Edit club</a>
       {% if can_delete %}<a role="button" class="secondary" href="{% url 'club-delete' club.pk %}">Delete club</a>{% endif %}
     </div>
@@ -30,4 +31,5 @@
       <p>No teams yet.</p>
     {% endfor %}
   </section>
+  <div id="team-form-modal"></div>
 {% endblock %}

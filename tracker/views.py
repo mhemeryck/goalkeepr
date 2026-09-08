@@ -544,7 +544,14 @@ async def team_create(request: HttpRequest) -> HttpResponse:
     is_modal = request.headers.get("HX-Request") == "true" and next_page in {
         "match-create",
         "team-list",
+        "club-detail",
     }
+    club = None
+    if club_id := request.GET.get("club"):
+        try:
+            club = await tracker.models.Club.objects.aget(pk=club_id)
+        except tracker.models.Club.DoesNotExist, ValueError:
+            pass
     defaults = await _defaults()
     required_context = (
         await _resolve_default_team(defaults) if next_page == "match-create" else None
@@ -558,6 +565,8 @@ async def team_create(request: HttpRequest) -> HttpResponse:
             "season": defaults.default_season,
             "age_group": defaults.default_age_group,
         }
+    if club is not None:
+        initial["club_name"] = club.name
     form = tracker.forms.TeamForm(
         request.POST or None,
         initial=initial,
@@ -575,12 +584,14 @@ async def team_create(request: HttpRequest) -> HttpResponse:
                     "opponent_team": team,
                 },
             )
-        if is_modal and next_page == "team-list":
+        if is_modal and next_page in {"team-list", "club-detail"}:
             response = HttpResponse(status=204)
             response["HX-Refresh"] = "true"
             return response
         if next_page == "match-create":
             return redirect(f"{reverse('match-create')}?opponent={team.pk}")
+        if next_page == "club-detail" and club is not None:
+            return redirect("club-detail", pk=club.pk)
         return redirect("team-detail", pk=team.pk)
     template_name = (
         "tracker/partials/team_form_modal.html"
@@ -597,7 +608,11 @@ async def team_create(request: HttpRequest) -> HttpResponse:
             "cancel_url": (
                 reverse("match-create")
                 if next_page == "match-create"
-                else reverse("team-list")
+                else (
+                    reverse("club-detail", args=[club.pk])
+                    if next_page == "club-detail" and club is not None
+                    else reverse("team-list")
+                )
             ),
             "club_names": await _club_names(),
         },
