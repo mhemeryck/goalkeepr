@@ -78,7 +78,9 @@ GitHub issue #13 as an idea inbox rather than committed scope
 - `occurred_at`: known goal time
 - No invented scorer, order, or occurrence-time data
 
-## Current Workflows
+## Planned Workflows
+
+The workflows in this section describe the intended product direction and are not all implemented in the current release.
 
 ### Match List
 
