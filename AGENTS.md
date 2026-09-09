@@ -1,5 +1,12 @@
 # Goalkeepr Development Guidance
 
+## Product Specification
+
+- [Product specification](docs/spec.md) as the source of truth for current behaviour, domain rules, and intended direction
+- GitHub issues for implementation tracking without silent specification changes
+- GitHub issue #13 as an idea inbox rather than committed scope
+- Git history for superseded requirements and previous iterations
+
 ## Product
 
 - Small, mobile-first Django and HTMX app for youth football scores
@@ -25,10 +32,18 @@
 - Ruff formatting and linting
 - Relevant tests and checks before completion
 
+## Markdown
+
+- Concise fragments instead of full sentences
+- No terminal periods for headings, list items, or short prose
+- One statement per physical line
+- No hard wrapping
+- Markdown links for repository files and documentation
+
 ## Repository Layout
 
-- Organize code and infrastructure by product responsibility, not implementation technology.
-- Keep each deployable repository self-contained, including its application code, container build, application-specific infrastructure, Kubernetes resources, and CI/CD pipeline.
+- Organization by product responsibility rather than implementation technology
+- Self-contained deployable repository including application code, container build, application-specific infrastructure, Kubernetes resources, and CI/CD pipeline
 
 ## Frontend
 
