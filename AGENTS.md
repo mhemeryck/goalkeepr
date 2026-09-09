@@ -7,6 +7,23 @@
 - GitHub issue #13 as an idea inbox rather than committed scope
 - Git history for superseded requirements and previous iterations
 
+## Development Workflow
+
+- Start from the [product specification](docs/spec.md) and one focused GitHub issue
+- Treat issue #13 as idea intake only
+- Promote an idea from issue #13 only after agreement on scope
+- Request explicit approval before creating or restructuring GitHub issues or milestones
+- Keep each issue independently deliverable with clear acceptance criteria
+- Link the relevant specification section from the issue when applicable
+- Update the specification only when current or intended product behaviour changes
+- Add a focused behaviour test before application changes where practical
+- Implement on a dedicated branch
+- Run relevant tests, Ruff, and mypy before completion
+- Open a pull request linked to the issue
+- Use `Closes #<issue>` only when the pull request fully satisfies the issue
+- Merge through the protected default branch after required checks
+- Continue with the next unblocked issue in dependency order
+
 ## Product
 
 - Small, mobile-first Django and HTMX app for youth football scores

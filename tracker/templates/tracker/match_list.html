@@ -5,10 +5,34 @@
 {% block content %}
   <div class="page-heading">
     <div>
-      <p class="eyebrow">{{ TEAM_NAME }}</p>
+      <p class="eyebrow">{{ primary_club_name }}</p>
       <h1>Matches</h1>
     </div>
     {% if user.is_authenticated %}<a role="button" href="{% url 'match-create' %}">Add match</a>{% endif %}
   </div>
+  <form class="match-filters" method="get">
+    <label>
+      <span class="visually-hidden">Search matches</span>
+      <input type="search" name="q" value="{{ query }}" placeholder="Search opponents, age groups, seasons">
+    </label>
+    <label>
+      <span class="visually-hidden">Season</span>
+      <select name="season">
+        <option value="all"{% if selected_season == "all" %} selected{% endif %}>All seasons</option>
+        {% for season, label in seasons %}<option value="{{ season }}"{% if selected_season == season|stringformat:"s" %} selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>
+      <span class="visually-hidden">Status</span>
+      <select name="status">
+        <option value="">All statuses</option>
+        <option value="scheduled"{% if selected_status == "scheduled" %} selected{% endif %}>Upcoming</option>
+        <option value="live"{% if selected_status == "live" %} selected{% endif %}>Live</option>
+        <option value="finished"{% if selected_status == "finished" %} selected{% endif %}>Finished</option>
+        <option value="cancelled"{% if selected_status == "cancelled" %} selected{% endif %}>Cancelled</option>
+      </select>
+    </label>
+    <button type="submit">Search</button>
+  </form>
   {% include "tracker/partials/match_list.html" %}
 {% endblock %}

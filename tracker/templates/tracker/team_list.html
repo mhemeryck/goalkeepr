@@ -5,24 +5,22 @@
 {% block content %}
   <div class="page-heading">
     <div>
-      <p class="eyebrow">Opposition</p>
+      <p class="eyebrow">Club teams</p>
       <h1>Teams</h1>
     </div>
+    <a role="button" href="{% url 'team-create' %}" hx-get="{% url 'team-create' %}?next=team-list" hx-target="#team-form-modal" hx-swap="innerHTML">Add team</a>
   </div>
   {% if teams %}
     <div class="team-list">
       {% for result in teams %}
-        {% if editing_team_id == result.team.pk %}
-          {% include "tracker/partials/team_edit_row.html" with form=edit_form %}
-        {% else %}
-          {% include "tracker/partials/team_row.html" %}
-        {% endif %}
+        {% include "tracker/partials/team_row.html" %}
       {% endfor %}
     </div>
   {% else %}
     <article class="empty-state">
       <h2>No teams yet</h2>
-      <p>Teams are added automatically when you add a match.</p>
+      <p>Add the first team to start recording matches.</p>
     </article>
   {% endif %}
+  <div id="team-form-modal"></div>
 {% endblock %}

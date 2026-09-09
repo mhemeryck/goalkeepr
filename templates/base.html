@@ -11,14 +11,21 @@
     <script src="{% static 'js/htmx.min.js' %}" defer></script>
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <header class="site-header">
       <nav class="container">
-        <a class="brand" href="{% url 'match-list' %}">Goalkeepr</a>
+        <a class="brand" href="{% url 'match-list' %}"{% if request.resolver_match.url_name == 'match-list' %} aria-current="page"{% endif %}>Goalkeepr</a>
         {% if user.is_authenticated %}
           <div class="nav-actions">
-            <a href="{% url 'match-create' %}">Add match</a>
-            <a href="{% url 'player-list' %}">Players</a>
-            <a href="{% url 'team-list' %}">Teams</a>
+            <a href="{% url 'match-create' %}"{% if request.resolver_match.url_name == 'match-create' %} aria-current="page"{% endif %}>Add match</a>
+            <details class="manage-menu">
+              <summary>Manage</summary>
+              <div>
+                <a href="{% url 'club-list' %}"{% if request.resolver_match.url_name == 'club-list' %} aria-current="page"{% endif %}>Clubs</a>
+                <a href="{% url 'player-list' %}"{% if request.resolver_match.url_name == 'player-list' %} aria-current="page"{% endif %}>Players</a>
+                <a href="{% url 'defaults-edit' %}"{% if request.resolver_match.url_name == 'defaults-edit' %} aria-current="page"{% endif %}>Defaults</a>
+              </div>
+            </details>
             <form method="post" action="{% url 'logout' %}">
               {% csrf_token %}
               <button class="link-button" type="submit">Log out</button>
@@ -29,7 +36,7 @@
         {% endif %}
       </nav>
     </header>
-    <main class="site-main container">
+    <main id="main-content" class="site-main container">
       {% block content %}{% endblock %}
     </main>
     <footer class="site-footer container">

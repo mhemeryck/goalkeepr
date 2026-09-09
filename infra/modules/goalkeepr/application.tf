@@ -132,11 +132,6 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
             }
           }
 
-          env {
-            name  = "TEAM_NAME"
-            value = "K.F.C. Sparta Kolmont"
-          }
-
           port {
             container_port = 8000
           }
@@ -152,7 +147,7 @@ resource "kubernetes_deployment_v1" "goalkeepr" {
               }
             }
 
-            period_seconds = 5
+            period_seconds  = 5
             timeout_seconds = 2
           }
         }

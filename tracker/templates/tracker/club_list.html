@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Clubs | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow">Manage</p>
+      <h1>Clubs</h1>
+    </div>
+    <a role="button" href="{% url 'club-create' %}">Add club</a>
+  </div>
+  {% if clubs %}
+    <div class="entity-grid">
+      {% for club in clubs %}
+        <article>
+          <h2><a href="{% url 'club-detail' club.pk %}">{{ club.name }}</a></h2>
+          <p>{{ club.seasonal_teams|length }} seasonal team{{ club.seasonal_teams|length|pluralize }}</p>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <article class="empty-state"><h2>No clubs yet</h2></article>
+  {% endif %}
+{% endblock %}

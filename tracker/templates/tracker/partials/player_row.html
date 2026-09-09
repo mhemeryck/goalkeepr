@@ -1,10 +1,14 @@
 <article id="player-{{ player.pk }}" class="player-row">
-  <a class="player-name" href="{% url 'player-edit' player.pk %}" hx-get="{% url 'player-edit' player.pk %}" hx-target="#player-{{ player.pk }}" hx-swap="outerHTML">
+  <a class="player-name" href="{% url 'player-detail' player.pk %}">
     <strong>{{ player.name }}</strong>
     <small>{{ player.goal_count }} goal{{ player.goal_count|pluralize }}</small>
   </a>
-  <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player? Their goals will remain recorded.')">
-    {% csrf_token %}
-    <button class="delete-player-button" type="submit" aria-label="Delete {{ player.name }}" title="Delete {{ player.name }}">&times;</button>
-  </form>
+  {% if player.goal_count %}
+    <small class="entity-lock">Recorded history</small>
+  {% else %}
+    <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player?')">
+      {% csrf_token %}
+      <button class="delete-player-button" type="submit" aria-label="Delete {{ player.name }}" title="Delete {{ player.name }}">&times;</button>
+    </form>
+  {% endif %}
 </article>

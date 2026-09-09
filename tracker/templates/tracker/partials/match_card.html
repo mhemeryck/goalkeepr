@@ -1,18 +1,27 @@
 <article class="match-card">
   <a id="match-link-{{ match.pk }}" class="match-card-link" href="{% url 'match-detail' match.pk %}">
     <div>
-      <span class="match-date">{{ match.match_date|date:"D j M Y" }}</span>
-      <strong>{% if match.is_home %}{{ TEAM_NAME }}{% else %}{{ match.opponent.name }}{% endif %}</strong>
-      <strong>{% if match.is_home %}{{ match.opponent.name }}{% else %}{{ TEAM_NAME }}{% endif %}</strong>
+      <time class="match-date" datetime="{{ match.match_date|date:'Y-m-d' }}">{{ match.match_date|date:"D j M Y" }}</time>
+      {% if match.home_team_id == primary_team_id %}
+        <strong>{{ match.away_team.club.name }}</strong>
+        <small>Home{% if show_team_context %} &middot; {{ match.home_team.age_group }} &middot; {{ match.home_team.get_season_display }}{% endif %}</small>
+      {% elif match.away_team_id == primary_team_id %}
+        <strong>{{ match.home_team.club.name }}</strong>
+        <small>Away{% if show_team_context %} &middot; {{ match.away_team.age_group }} &middot; {{ match.away_team.get_season_display }}{% endif %}</small>
+      {% else %}
+        <strong>{{ match.home_team.club.name }} v {{ match.away_team.club.name }}</strong>
+        {% if show_team_context %}<small>{{ match.home_team.age_group }} &middot; {{ match.home_team.get_season_display }}</small>{% endif %}
+      {% endif %}
     </div>
-    {% if match.match_date > today %}
-      <span class="fixture-badge">Fixture</span>
-    {% else %}
+    {% if match.status == "finished" or match.status == "live" %}
       <div class="compact-score" aria-label="Score {{ match.home_score_value }} to {{ match.away_score_value }}">
+        {% if match.status == "live" %}<small>Live</small>{% endif %}
         <strong>{{ match.home_score_value }}</strong>
         <span>–</span>
         <strong>{{ match.away_score_value }}</strong>
       </div>
+    {% else %}
+      <span class="fixture-badge">{{ match.get_status_display }}</span>
     {% endif %}
   </a>
 </article>

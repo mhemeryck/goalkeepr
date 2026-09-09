@@ -20,9 +20,8 @@ docker compose exec app python manage.py createsuperuser
 
 Open <http://localhost:8000> and log in with that account
 
-The PostgreSQL data is retained in the `postgres-data` Docker volume.
-The household team defaults to `K.F.C. Sparta Kolmont`.
-Set `TEAM_NAME` before starting Compose to override it.
+PostgreSQL data retained in the `postgres-data` Docker volume
+Default club, season, and age group configured from the application defaults page
 
 ## Container Development
 

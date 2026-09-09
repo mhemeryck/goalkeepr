@@ -1,87 +1,86 @@
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
-from django.conf import settings
 from django.contrib.auth.models import User
-from django.test import Client, override_settings
+from django.test import Client
 from django.urls import resolve, reverse
-from django.utils import timezone
 
 import tracker.models
 
 
 def make_match(
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
     *,
-    opponent_name: str = "United",
-    is_home: bool = True,
-    match_date: date = date(2026, 8, 16),
+    status: tracker.models.Match.Status = tracker.models.Match.Status.FINISHED,
+    primary_is_home: bool = True,
 ) -> tracker.models.Match:
-    opponent, _ = tracker.models.Team.objects.get_or_create(name=opponent_name)
     return tracker.models.Match.objects.create(
-        opponent=opponent,
-        match_date=match_date,
-        is_home=is_home,
+        home_team=primary_team if primary_is_home else opponent_team,
+        away_team=opponent_team if primary_is_home else primary_team,
+        match_date=date(2026, 8, 16),
+        status=status,
     )
 
 
 @pytest.mark.django_db
-def test_match_list_is_public_and_contains_all_matches(
+def test_match_list_is_public_and_shows_compact_opponent_context(
     client: Client,
-    user: User,
-    other_user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    first = make_match()
-    second = make_match(opponent_name="City")
+    match = make_match(primary_team, opponent_team)
 
     response = client.get(reverse("match-list"))
 
     assert response.status_code == 200
-    assert list(response.context["matches"]) == [second, first]
-    assert "K.F.C. Sparta Kolmont" in response.text
-    assert reverse("match-detail", args=[first.pk]) in response.text
-    assert reverse("match-score", args=[first.pk]) not in response.text
+    assert opponent_team.club.name in response.text
+    assert str(primary_team) not in response.text
+    assert str(opponent_team) not in response.text
+    assert "Home" in response.text
+    assert reverse("match-detail", args=[match.pk]) in response.text
+    assert reverse("match-create") not in response.text
 
 
 @pytest.mark.django_db
-def test_public_navigation_contains_login_link(client: Client) -> None:
+@pytest.mark.parametrize(
+    "status",
+    [
+        tracker.models.Match.Status.SCHEDULED,
+        tracker.models.Match.Status.LIVE,
+        tracker.models.Match.Status.CANCELLED,
+    ],
+)
+def test_unfinished_match_is_not_displayed_as_a_draw(
+    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+    status: tracker.models.Match.Status,
+) -> None:
+    make_match(primary_team, opponent_team, status=status)
+
     response = client.get(reverse("match-list"))
 
-    assert reverse("login") in response.text
+    if status == tracker.models.Match.Status.LIVE:
+        assert "Score 0 to 0" in response.text
+    else:
+        assert "Score 0 to 0" not in response.text
+    assert str(tracker.models.Match.Status(status).label) in response.text
 
 
 @pytest.mark.django_db
-def test_match_list_contains_private_use_disclaimer(client: Client) -> None:
-    response = client.get(reverse("match-list"))
-
-    assert "Private household use only." in response.text
-
-
-@pytest.mark.django_db
-def test_match_list_uses_full_height_layout(client: Client) -> None:
-    response = client.get(reverse("match-list"))
-
-    assert '<main class="site-main container">' in response.text
-
-
-def test_static_files_use_whitenoise() -> None:
-    assert "whitenoise.middleware.WhiteNoiseMiddleware" in settings.MIDDLEWARE
-    assert (
-        settings.STORAGES["staticfiles"]["BACKEND"]
-        == "whitenoise.storage.CompressedManifestStaticFilesStorage"
-    )
-
-
-@pytest.mark.django_db
-def test_match_list_scores_are_derived_from_events(client: Client, user: User) -> None:
-    match = make_match()
-    tracker.models.ScoreEvent.objects.create(
-        match=match, side=tracker.models.ScoreEvent.Side.HOME
-    )
-    tracker.models.ScoreEvent.objects.create(
-        match=match, side=tracker.models.ScoreEvent.Side.HOME
-    )
-    tracker.models.ScoreEvent.objects.create(
-        match=match, side=tracker.models.ScoreEvent.Side.AWAY
+def test_finished_match_score_is_derived_from_events(
+    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
+    tracker.models.ScoreEvent.objects.bulk_create(
+        [
+            tracker.models.ScoreEvent(match=match, side="home"),
+            tracker.models.ScoreEvent(match=match, side="home"),
+            tracker.models.ScoreEvent(match=match, side="away"),
+        ]
     )
 
     response = client.get(reverse("match-list"))
@@ -89,789 +88,443 @@ def test_match_list_scores_are_derived_from_events(client: Client, user: User) -
     listed_match = response.context["matches"][0]
     assert listed_match.home_score_value == 2
     assert listed_match.away_score_value == 1
+    assert "Score 2 to 1" in response.text
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("authenticated", [False, True])
-def test_match_list_does_not_poll_for_updates(
+def test_match_list_defaults_to_current_season(
     client: Client,
-    user: User,
-    authenticated: bool,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    if authenticated:
-        client.force_login(user)
+    current_match = make_match(primary_team, opponent_team)
+    old_home = tracker.models.Team.objects.create(
+        club=primary_team.club,
+        season=tracker.models.Season.YEAR_2025,
+        age_group="U10",
+    )
+    old_away = tracker.models.Team.objects.create(
+        club=opponent_team.club,
+        season=tracker.models.Season.YEAR_2025,
+        age_group="U10",
+    )
+    old_match = tracker.models.Match.objects.create(
+        home_team=old_home,
+        away_team=old_away,
+        match_date=date(2025, 8, 16),
+        status=tracker.models.Match.Status.FINISHED,
+    )
+    other_age_club = tracker.models.Club.objects.create(name="City")
+    other_age_team = tracker.models.Team.objects.create(
+        club=other_age_club,
+        season=primary_team.season,
+        age_group="U12",
+    )
+    other_age_match = tracker.models.Match.objects.create(
+        home_team=other_age_team,
+        away_team=opponent_team,
+        match_date=date(2026, 8, 17),
+        status=tracker.models.Match.Status.FINISHED,
+    )
 
     response = client.get(reverse("match-list"))
+    all_response = client.get(reverse("match-list"), {"season": "all"})
 
-    assert "hx-get" not in response.text
-    assert 'hx-trigger="every 5s"' not in response.text
+    assert current_match in response.context["matches"]
+    assert old_match not in response.context["matches"]
+    assert other_age_match not in response.context["matches"]
+    assert old_match in all_response.context["matches"]
+    assert other_age_match in all_response.context["matches"]
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("authenticated", [False, True])
-def test_only_read_only_match_detail_polls_for_updates(
+def test_defaults_view_limits_teams_to_the_selected_season(
     client: Client,
     user: User,
-    authenticated: bool,
+    primary_team: tracker.models.Team,
 ) -> None:
-    match = make_match()
-    if authenticated:
-        client.force_login(user)
+    tracker.models.Team.objects.create(
+        club=primary_team.club,
+        season=tracker.models.Season.YEAR_2025,
+        age_group="U10",
+    )
+    client.force_login(user)
 
-    response = client.get(reverse("match-detail", args=[match.pk]))
-    fragment_url = reverse("match-detail-fragment", args=[match.pk])
+    response = client.get(reverse("defaults-edit"))
 
     assert response.status_code == 200
-    if authenticated:
-        assert f'hx-get="{fragment_url}"' not in response.text
-        assert 'hx-trigger="every 5s"' not in response.text
-    else:
-        assert f'hx-get="{fragment_url}"' in response.text
-        assert 'hx-trigger="every 5s"' in response.text
+    assert f">{primary_team.club}</option>" in response.text
+    assert 'value="U11"' in response.text
+    assert 'value="U10"' in response.text
 
 
 @pytest.mark.django_db
-def test_match_detail_fragment_is_public_and_returns_updated_score(
+def test_defaults_can_be_changed_as_club_season_and_age_group(
     client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
 ) -> None:
-    match = make_match()
+    client.force_login(user)
 
-    initial_response = client.get(reverse("match-detail-fragment", args=[match.pk]))
-    tracker.models.ScoreEvent.objects.create(
-        match=match,
-        side=tracker.models.ScoreEvent.Side.HOME,
+    response = client.post(
+        reverse("defaults-edit"),
+        {
+            "default_club": primary_team.club_id,
+            "default_season": primary_team.season,
+            "default_age_group": primary_team.age_group,
+        },
     )
-    updated_response = client.get(reverse("match-detail-fragment", args=[match.pk]))
 
-    assert initial_response.status_code == 200
-    assert initial_response.context["home_score"] == 0
-    assert 'id="match-detail-content"' in initial_response.text
-    assert updated_response.status_code == 200
-    assert updated_response.context["home_score"] == 1
-    assert "Goal history" in updated_response.text
-    assert 'hx-trigger="every 5s"' in updated_response.text
+    defaults = tracker.models.Defaults.objects.get(pk=1)
+    assert response.status_code == 302
+    assert defaults.default_club == primary_team.club
+    assert defaults.default_season == primary_team.season
+    assert defaults.default_age_group == primary_team.age_group
 
 
 @pytest.mark.django_db
-def test_deleted_match_poll_redirects_to_match_list(client: Client) -> None:
-    match = make_match()
-    fragment_url = reverse("match-detail-fragment", args=[match.pk])
-    match.delete()
+def test_match_list_searches_clubs_age_groups_and_seasons(
+    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
 
-    polling_response = client.get(fragment_url, HTTP_HX_REQUEST="true")
-    ordinary_response = client.get(fragment_url)
+    for query in ("United", "U11", "2026-2027"):
+        response = client.get(reverse("match-list"), {"q": query})
+        assert match in response.context["matches"]
 
-    assert polling_response.status_code == 200
-    assert polling_response["HX-Redirect"] == reverse("match-list")
-    assert ordinary_response.status_code == 404
+    response = client.get(reverse("match-list"), {"q": "missing"})
+    assert match not in response.context["matches"]
 
 
 @pytest.mark.django_db
-def test_match_detail_is_public_and_read_only(client: Client, user: User) -> None:
-    match = make_match()
+def test_match_list_uses_load_more_pagination(
+    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    for _ in range(21):
+        make_match(primary_team, opponent_team)
+
+    response = client.get(reverse("match-list"))
+    next_response = client.get(
+        reverse("match-list"),
+        {"page": 2},
+        HTTP_HX_REQUEST="true",
+    )
+
+    assert len(response.context["matches"]) == 20
+    assert "Load more" in response.text
+    assert len(next_response.context["matches"]) == 1
+    assert next_response.templates[0].name == "tracker/partials/match_page.html"
+
+
+@pytest.mark.django_db
+def test_anonymous_match_detail_is_read_only_and_polls(
+    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(
+        primary_team, opponent_team, status=tracker.models.Match.Status.LIVE
+    )
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
     assert response.status_code == 200
     assert 'id="scoreboard"' in response.text
-    assert "K.F.C. Sparta Kolmont" in response.text
-    assert "United" in response.text
-    assert 'class="score"' in response.text
-    assert "No goals recorded yet." in response.text
-    assert (
-        reverse("score-goal", args=[match.pk, tracker.models.ScoreEvent.Side.HOME])
-        not in response.text
-    )
-    assert reverse("match-edit", args=[match.pk]) not in response.text
+    assert 'hx-trigger="every 5s"' in response.text
+    assert reverse("score-goal", args=[match.pk, "home"]) not in response.text
     assert reverse("match-delete", args=[match.pk]) not in response.text
-    assert reverse("match-score", args=[match.pk]) not in response.text
 
 
 @pytest.mark.django_db
-def test_missing_match_uses_styled_not_found_page(client: Client) -> None:
-    response = client.get(reverse("match-detail", args=[999]))
-
-    assert response.status_code == 404
-    assert [template.name for template in response.templates] == [
-        "404.html",
-        "base.html",
-    ]
-    assert "Wide of the post" in response.text
-    assert reverse("match-list") in response.text
-
-
-@pytest.mark.django_db
-@override_settings(TEAM_NAME="Configured FC")
-@pytest.mark.parametrize(
-    ("is_home", "home_name", "away_name"),
-    [(True, "Configured FC", "United"), (False, "United", "Configured FC")],
-)
-def test_match_detail_places_configured_team_on_correct_side(
+def test_finished_match_detail_does_not_poll(
     client: Client,
-    user: User,
-    is_home: bool,
-    home_name: str,
-    away_name: str,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    match = make_match(is_home=is_home)
+    match = make_match(primary_team, opponent_team)
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
-    assert response.context["home_name"] == home_name
-    assert response.context["away_name"] == away_name
+    assert 'hx-trigger="every 5s"' not in response.text
 
 
 @pytest.mark.django_db
-def test_authenticated_user_sees_match_write_actions(
-    user: User,
+def test_authenticated_match_detail_has_lifecycle_controls(
     client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    match = make_match()
+    match = make_match(
+        primary_team,
+        opponent_team,
+        status=tracker.models.Match.Status.SCHEDULED,
+    )
     client.force_login(user)
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
-    assert reverse("match-edit", args=[match.pk]) in response.text
-    assert reverse("match-delete", args=[match.pk]) in response.text
-    assert reverse("match-score", args=[match.pk]) not in response.text
-    assert (
-        reverse("score-goal", args=[match.pk, tracker.models.ScoreEvent.Side.HOME])
-        in response.text
+    assert reverse("match-set-status", args=[match.pk, "live"]) in response.text
+    assert reverse("match-set-status", args=[match.pk, "cancelled"]) in response.text
+    assert reverse("match-set-status", args=[match.pk, "finished"]) not in response.text
+    assert 'hx-trigger="every 5s"' not in response.text
+
+
+@pytest.mark.django_db
+def test_status_is_changed_explicitly(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(
+        primary_team,
+        opponent_team,
+        status=tracker.models.Match.Status.SCHEDULED,
     )
+    client.force_login(user)
 
+    response = client.post(reverse("match-set-status", args=[match.pk, "live"]))
 
-@pytest.mark.django_db
-def test_match_create_requires_login(client: Client) -> None:
-    response = client.get(reverse("match-create"))
-
+    match.refresh_from_db()
     assert response.status_code == 302
-    assert response["Location"].startswith(reverse("login"))
+    assert match.status == tracker.models.Match.Status.LIVE
 
 
 @pytest.mark.django_db
-def test_match_create_defaults_to_home(
-    user: User,
+def test_invalid_status_transition_is_rejected(
     client: Client,
-) -> None:
-    client.force_login(user)
-
-    response = client.get(reverse("match-create"))
-
-    assert response.status_code == 200
-    assert response.context["form"]["is_home"].value() is True
-    assert "location" not in response.context["form"].fields
-
-
-@pytest.mark.django_db
-def test_match_create_defaults_date_to_today(
     user: User,
-    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    client.force_login(user)
-
-    response = client.get(reverse("match-create"))
-
-    assert response.status_code == 200
-    assert response.context["form"]["match_date"].value() == date.today()
-
-
-@pytest.mark.django_db
-def test_match_create_keeps_notes_collapsed_by_default(
-    user: User,
-    client: Client,
-) -> None:
-    client.force_login(user)
-
-    response = client.get(reverse("match-create"))
-
-    assert response.status_code == 200
-    assert "<details>" in response.text
-    assert "<summary>Notes</summary>" in response.text
-
-
-@pytest.mark.django_db
-def test_match_create_persists_match(
-    user: User,
-    client: Client,
-) -> None:
-    client.force_login(user)
-
-    response = client.post(
-        reverse("match-create"),
-        {
-            "opponent_name": "United",
-            "match_date": "2026-08-16",
-            "is_home": "True",
-            "notes": "Cup match",
-        },
+    match = make_match(
+        primary_team,
+        opponent_team,
+        status=tracker.models.Match.Status.SCHEDULED,
     )
-
-    match = tracker.models.Match.objects.get()
-    assert response.status_code == 302
-    assert response["Location"] == reverse("match-detail", args=[match.pk])
-    assert match.opponent.name == "United"
-
-
-@pytest.mark.django_db
-def test_match_form_reuses_opponent_case_insensitively(
-    user: User,
-    client: Client,
-) -> None:
-    existing = tracker.models.Team.objects.create(name="United")
     client.force_login(user)
 
-    response = client.post(
-        reverse("match-create"),
-        {
-            "opponent_name": " united ",
-            "match_date": "2026-08-16",
-            "is_home": "True",
-        },
-    )
+    response = client.post(reverse("match-set-status", args=[match.pk, "finished"]))
 
-    assert response.status_code == 302
-    assert tracker.models.Team.objects.count() == 1
-    assert tracker.models.Match.objects.get().opponent == existing
+    match.refresh_from_db()
+    assert response.status_code == 409
+    assert match.status == tracker.models.Match.Status.SCHEDULED
 
 
 @pytest.mark.django_db
-def test_match_form_offers_existing_opponents(
-    user: User,
+def test_finished_match_requires_explicit_correction_mode(
     client: Client,
-) -> None:
-    tracker.models.Team.objects.create(name="City")
-    client.force_login(user)
-
-    response = client.get(reverse("match-create"))
-
-    assert '<datalist id="opponent-teams">' in response.text
-    assert '<option value="City">' in response.text
-
-
-@pytest.mark.django_db
-def test_creating_future_match_redirects_to_fixture_detail(
     user: User,
-    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    client.force_login(user)
-    future_date = timezone.localdate() + timedelta(days=1)
-
-    response = client.post(
-        reverse("match-create"),
-        {
-            "opponent_name": "United",
-            "match_date": future_date.isoformat(),
-            "is_home": "True",
-        },
-    )
-
-    match = tracker.models.Match.objects.get()
-    assert response.status_code == 302
-    assert response["Location"] == reverse("match-detail", args=[match.pk])
-
-
-@pytest.mark.django_db
-def test_match_details_offer_independent_inline_edits(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
+    match = make_match(primary_team, opponent_team)
     client.force_login(user)
 
     response = client.get(reverse("match-detail", args=[match.pk]))
-
-    for field_name in ("opponent", "venue", "date", "notes"):
-        edit_url = reverse("match-field-edit", args=[match.pk, field_name])
-        assert f'id="match-detail-{field_name}"' in response.text
-        assert f'hx-get="{edit_url}"' in response.text
-
-
-@pytest.mark.django_db
-def test_match_detail_can_open_one_inline_edit_row(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-
-    response = client.get(
-        reverse("match-field-edit", args=[match.pk, "opponent"]),
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/match_detail_edit_row.html"
-    assert 'id="match-detail-opponent"' in response.text
-    assert 'name="opponent_name"' in response.text
-    assert 'value="United"' in response.text
-    assert 'name="match_date"' not in response.text
-    assert 'name="is_home"' not in response.text
-    assert 'name="notes"' not in response.text
-
-
-@pytest.mark.django_db
-def test_escape_trigger_closes_inline_edit_without_saving(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-    edit_url = reverse("match-field-edit", args=[match.pk, "opponent"])
-
-    edit_response = client.get(edit_url, HTTP_HX_REQUEST="true")
-    cancel_response = client.get(
-        edit_url,
-        {"cancel": "1"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    match.refresh_from_db()
-    assert "keydown[key=='Escape'] from:body" in edit_response.text
-    assert f'hx-get="{edit_url}?cancel=1"' in edit_response.text
-    assert cancel_response.status_code == 200
-    assert cancel_response.templates[0].name == "tracker/partials/match_detail_row.html"
-    assert 'id="match-detail-opponent"' in cancel_response.text
-    assert 'name="opponent_name"' not in cancel_response.text
-    assert match.opponent.name == "United"
-
-
-@pytest.mark.django_db
-def test_inline_match_field_edit_only_updates_selected_field(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    match.notes = "Keep this note"
-    match.save(update_fields=["notes"])
-    client.force_login(user)
-
-    response = client.post(
-        reverse("match-field-edit", args=[match.pk, "opponent"]),
-        {"opponent_name": "City"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    match.refresh_from_db()
-    assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/match_detail_row_saved.html"
-    assert match.opponent.name == "City"
-    assert match.match_date == date(2026, 8, 16)
-    assert match.is_home is True
-    assert match.notes == "Keep this note"
-    assert 'id="match-detail-opponent"' in response.text
-    assert 'id="match-detail-venue"' not in response.text
-    assert 'hx-swap-oob="outerHTML"' in response.text
-
-
-@pytest.mark.django_db
-def test_inline_venue_edit_swaps_goal_sides_and_refreshes_scoreboard(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    event = tracker.models.ScoreEvent.objects.create(
-        match=match,
-        side=tracker.models.ScoreEvent.Side.HOME,
-    )
-    client.force_login(user)
-
-    response = client.post(
-        reverse("match-field-edit", args=[match.pk, "venue"]),
-        {"is_home": "False"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    match.refresh_from_db()
-    event.refresh_from_db()
-    assert match.is_home is False
-    assert event.side == tracker.models.ScoreEvent.Side.AWAY
-    assert response.context["home_name"] == "United"
-    assert response.context["away_name"] == settings.TEAM_NAME
-    assert 'hx-swap-oob="outerHTML"' in response.text
-
-
-@pytest.mark.django_db
-def test_inline_notes_edit_returns_only_the_updated_row(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-
-    response = client.post(
-        reverse("match-field-edit", args=[match.pk, "notes"]),
-        {"notes": "Cup match"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    match.refresh_from_db()
-    assert match.notes == "Cup match"
-    assert 'id="match-detail-notes"' in response.text
-    assert 'id="scoreboard"' not in response.text
-    assert "hx-swap-oob" not in response.text
-
-
-@pytest.mark.django_db
-def test_inline_match_field_edit_keeps_validation_error_in_row(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-
-    response = client.post(
-        reverse("match-field-edit", args=[match.pk, "date"]),
-        {"match_date": "invalid"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/match_detail_edit_row.html"
-    assert 'id="match-detail-date"' in response.text
-    assert "Enter a valid date." in response.text
-
-
-@pytest.mark.django_db
-def test_non_htmx_match_field_edit_uses_canonical_detail_page(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-    edit_url = reverse("match-field-edit", args=[match.pk, "date"])
-
-    edit_response = client.get(edit_url)
-    form_response = client.get(
+    correction_response = client.get(
         reverse("match-detail", args=[match.pk]),
-        {"edit": "date"},
+        {"correct": "1"},
     )
-    invalid_response = client.post(edit_url, {"match_date": "invalid"})
 
-    assert edit_response.status_code == 302
-    assert edit_response["Location"] == (
-        f"{reverse('match-detail', args=[match.pk])}?edit=date"
+    goal_url = reverse("score-goal", args=[match.pk, "home"])
+    assert goal_url not in response.text
+    assert goal_url in correction_response.text
+
+
+@pytest.mark.django_db
+def test_scheduled_and_cancelled_matches_reject_scoring(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(
+        primary_team,
+        opponent_team,
+        status=tracker.models.Match.Status.SCHEDULED,
     )
-    assert form_response.status_code == 200
-    assert 'id="match-detail-date"' in form_response.text
-    assert 'name="match_date"' in form_response.text
-    assert 'name="opponent_name"' not in form_response.text
-    assert invalid_response.status_code == 400
-    assert 'id="scoreboard"' in invalid_response.text
-    assert "Enter a valid date." in invalid_response.text
+    client.force_login(user)
+
+    scheduled_response = client.post(reverse("score-goal", args=[match.pk, "home"]))
+    match.status = tracker.models.Match.Status.CANCELLED
+    match.save(update_fields=["status"])
+    cancelled_response = client.post(reverse("score-goal", args=[match.pk, "home"]))
+
+    assert scheduled_response.status_code == 403
+    assert cancelled_response.status_code == 403
+    assert not tracker.models.ScoreEvent.objects.exists()
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    ("route_name", "method", "args"),
-    [
-        ("match-edit", "get", ()),
-        ("match-field-edit", "get", ("opponent",)),
-        ("match-delete", "post", ()),
-        ("match-score", "get", ()),
-        ("score-goal", "post", (tracker.models.ScoreEvent.Side.HOME,)),
-        ("score-undo", "post", (tracker.models.ScoreEvent.Side.HOME,)),
-    ],
+    "status", [tracker.models.Match.Status.LIVE, tracker.models.Match.Status.FINISHED]
 )
-def test_match_writes_require_login(
+def test_live_and_finished_matches_allow_score_corrections(
     client: Client,
     user: User,
-    route_name: str,
-    method: str,
-    args: tuple[str, ...],
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+    status: tracker.models.Match.Status,
 ) -> None:
-    match = make_match()
-    url = reverse(route_name, args=(match.pk, *args))
-
-    response = getattr(client, method)(url)
-
-    assert response.status_code == 302
-    assert response["Location"].startswith(reverse("login"))
-
-
-@pytest.mark.django_db
-@pytest.mark.parametrize(
-    ("route_name", "method", "args", "expected_status"),
-    [
-        ("match-edit", "get", (), 302),
-        ("match-field-edit", "get", ("opponent",), 302),
-        ("match-delete", "post", (), 302),
-        ("match-score", "get", (), 302),
-        ("score-goal", "post", (tracker.models.ScoreEvent.Side.HOME,), 302),
-        ("score-undo", "post", (tracker.models.ScoreEvent.Side.HOME,), 302),
-    ],
-)
-def test_match_writes_allow_another_user(
-    other_user: User,
-    client: Client,
-    route_name: str,
-    method: str,
-    args: tuple[str, ...],
-    expected_status: int,
-) -> None:
-    match = make_match()
-    url = reverse(route_name, args=(match.pk, *args))
-    client.force_login(other_user)
-
-    response = getattr(client, method)(url)
-
-    assert response.status_code == expected_status
-
-
-@pytest.mark.django_db
-def test_goal_records_event_and_returns_score_fragment(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
+    match = make_match(primary_team, opponent_team, status=status)
     client.force_login(user)
 
     response = client.post(
-        reverse("score-goal", args=[match.pk, tracker.models.ScoreEvent.Side.HOME]),
+        reverse("score-goal", args=[match.pk, "home"]),
+        {"correction": "1"} if status == tracker.models.Match.Status.FINISHED else {},
         HTTP_HX_REQUEST="true",
     )
-
     event = tracker.models.ScoreEvent.objects.get()
+
     assert response.status_code == 200
-    assert event.match == match
-    assert event.side == tracker.models.ScoreEvent.Side.HOME
-    assert [template.name for template in response.templates] == [
-        "tracker/partials/scoreboard.html"
-    ]
+    assert event.recorded_at == event.occurred_at
     assert response.context["home_score"] == 1
-    assert response.context["away_score"] == 0
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("is_home", [True, False])
-def test_household_goal_can_record_optional_scorer(
-    user: User,
+def test_historical_goal_contributes_without_fabricated_occurrence_time(
     client: Client,
-    is_home: bool,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    match = make_match(is_home=is_home)
-    player = tracker.models.Player.objects.create(name="Alex")
-    side = (
-        tracker.models.ScoreEvent.Side.HOME
-        if is_home
-        else tracker.models.ScoreEvent.Side.AWAY
-    )
-    client.force_login(user)
-
-    response = client.post(
-        reverse("score-goal", args=[match.pk, side]),
-        {"scorer_name": "Alex"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert tracker.models.ScoreEvent.objects.get().scorer == player
-    assert "Goal history" in response.text
-    assert "Alex" in response.text
-    assert f"{reverse('player-list')}#player-{player.pk}" in response.text
-
-
-@pytest.mark.django_db
-def test_scoreboard_aligns_goal_controls_when_scorer_is_home_only(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match(is_home=True)
-    client.force_login(user)
+    match = make_match(primary_team, opponent_team)
+    event = tracker.models.ScoreEvent.objects.create(match=match, side="home")
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
-    assert response.text.count('class="scorer-slot') == 2
-    assert response.text.count("scorer-placeholder") == 1
+    assert response.context["home_score"] == 1
+    assert event.recorded_at.strftime("%H:%M:%S") not in response.text
+
+
+@pytest.mark.django_db
+def test_add_player_creates_membership_and_selects_without_recording_goal(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(
+        primary_team, opponent_team, status=tracker.models.Match.Status.LIVE
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-player-add", args=[match.pk]),
+        {"name": "Alex"},
+        HTTP_HX_REQUEST="true",
+    )
+
+    player = tracker.models.Player.objects.get(name="Alex")
+    assert response.status_code == 200
+    assert tracker.models.TeamMembership.objects.filter(
+        player=player, team=primary_team
+    ).exists()
+    assert not tracker.models.ScoreEvent.objects.exists()
+    assert f'value="{player.pk}" selected' in response.text
+
+
+@pytest.mark.django_db
+def test_goal_scorer_must_be_on_the_household_roster(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(
+        primary_team, opponent_team, status=tracker.models.Match.Status.LIVE
+    )
+    player = tracker.models.Player.objects.create(name="Alex")
+    client.force_login(user)
+
+    response = client.post(
+        reverse("score-goal", args=[match.pk, "home"]),
+        {"scorer": player.pk},
+    )
+
+    assert response.status_code == 400
+    assert not tracker.models.ScoreEvent.objects.exists()
+
+
+@pytest.mark.django_db
+def test_goal_can_select_a_player_from_the_household_roster(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(
+        primary_team, opponent_team, status=tracker.models.Match.Status.LIVE
+    )
+    player = tracker.models.Player.objects.create(name="Alex")
+    tracker.models.TeamMembership.objects.create(player=player, team=primary_team)
+    client.force_login(user)
+
+    response = client.post(
+        reverse("score-goal", args=[match.pk, "home"]),
+        {"scorer": player.pk},
+    )
+
+    assert response.status_code == 302
+    assert tracker.models.ScoreEvent.objects.get().scorer == player
 
 
 @pytest.mark.django_db
 def test_opponent_goal_ignores_submitted_scorer(
-    user: User,
     client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    match = make_match(is_home=True)
-    tracker.models.Player.objects.create(name="Alex")
+    match = make_match(
+        primary_team, opponent_team, status=tracker.models.Match.Status.LIVE
+    )
     client.force_login(user)
 
     response = client.post(
-        reverse(
-            "score-goal",
-            args=[match.pk, tracker.models.ScoreEvent.Side.AWAY],
-        ),
-        {"scorer_name": "Alex"},
-        HTTP_HX_REQUEST="true",
+        reverse("score-goal", args=[match.pk, "away"]),
+        {"scorer": "999"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 302
     assert tracker.models.ScoreEvent.objects.get().scorer is None
-    assert "Scorer not recorded" not in response.text
+    assert not tracker.models.Player.objects.exists()
 
 
 @pytest.mark.django_db
-def test_public_scorer_name_links_only_when_authenticated(
-    user: User,
+def test_scoreboard_only_offers_scorer_for_primary_club(
     client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    match = make_match()
-    player = tracker.models.Player.objects.create(name="Alex")
-    tracker.models.ScoreEvent.objects.create(
-        match=match,
-        side=tracker.models.ScoreEvent.Side.HOME,
-        scorer=player,
+    match = make_match(
+        primary_team, opponent_team, status=tracker.models.Match.Status.LIVE
     )
-
-    public_response = client.get(reverse("match-detail", args=[match.pk]))
-    client.force_login(user)
-    private_response = client.get(reverse("match-detail", args=[match.pk]))
-
-    player_url = f"{reverse('player-list')}#player-{player.pk}"
-    assert "by Alex" in public_response.text
-    assert player_url not in public_response.text
-    assert "by Alex" in private_response.text
-    assert player_url in private_response.text
-
-
-@pytest.mark.django_db
-def test_scoreboard_shows_complete_goal_history_newest_first(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    players = [
-        tracker.models.Player.objects.create(name=f"Player {number}")
-        for number in range(6)
-    ]
-    for player in players:
-        tracker.models.ScoreEvent.objects.create(
-            match=match,
-            side=tracker.models.ScoreEvent.Side.HOME,
-            scorer=player,
-        )
     client.force_login(user)
 
     response = client.get(reverse("match-detail", args=[match.pk]))
 
-    assert response.status_code == 200
-    assert [event.scorer for event in response.context["events"]] == list(
-        reversed(players)
-    )
-    marker = '<span class="goal-marker" aria-hidden="true"></span>'
-    assert response.text.count(marker) == 6
-    assert response.text.index("Player 5") < response.text.index("Player 0")
-    assert response.text.count('class="latest-goal"') == 1
+    assert 'id="scorer-home"' in response.text
+    assert 'id="scorer-away"' not in response.text
+    assert response.text.count('hx-disabled-elt="find button"') == 4
 
 
 @pytest.mark.django_db
-def test_player_management_requires_login(client: Client) -> None:
-    response = client.get(reverse("player-list"))
-
-    assert response.status_code == 302
-    assert response["Location"].startswith(reverse("login"))
-
-
-@pytest.mark.django_db
-def test_player_list_shows_inline_edit_and_total_goals(
-    user: User,
+def test_player_with_score_events_cannot_be_deleted(
     client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    player = tracker.models.Player.objects.create(name="Alxe")
-    match = make_match()
-    tracker.models.ScoreEvent.objects.bulk_create(
-        [
-            tracker.models.ScoreEvent(
-                match=match,
-                side=tracker.models.ScoreEvent.Side.HOME,
-                scorer=player,
-            ),
-            tracker.models.ScoreEvent(
-                match=match,
-                side=tracker.models.ScoreEvent.Side.HOME,
-                scorer=player,
-            ),
-        ]
-    )
-    client.force_login(user)
-
-    list_response = client.get(reverse("player-list"))
-
-    assert 'id="player-' in list_response.text
-    assert "2 goals" in list_response.text
-    assert 'aria-label="Delete Alxe"' in list_response.text
-    assert f'hx-get="{reverse("player-edit", args=[player.pk])}"' in list_response.text
-    assert "Edit" not in list_response.text
-
-
-@pytest.mark.django_db
-def test_player_can_be_edited_from_player_list(user: User, client: Client) -> None:
-    player = tracker.models.Player.objects.create(name="Alxe")
-    client.force_login(user)
-
-    edit_response = client.post(
-        reverse("player-edit", args=[player.pk]),
-        {"name": "Alex"},
-    )
-
-    player.refresh_from_db()
-    assert edit_response.status_code == 302
-    assert edit_response["Location"] == reverse("player-list")
-    assert player.name == "Alex"
-
-
-@pytest.mark.django_db
-def test_clicking_player_returns_inline_textbox(user: User, client: Client) -> None:
+    match = make_match(primary_team, opponent_team)
     player = tracker.models.Player.objects.create(name="Alex")
-    client.force_login(user)
-
-    response = client.get(
-        reverse("player-edit", args=[player.pk]),
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/player_edit_row.html"
-    assert 'value="Alex"' in response.text
-
-    save_response = client.post(
-        reverse("player-edit", args=[player.pk]),
-        {"name": "Alexandra"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert save_response.status_code == 200
-    assert save_response.templates[0].name == "tracker/partials/player_row.html"
-    assert "Alexandra" in save_response.text
-    assert 'name="name"' not in save_response.text
-
-
-@pytest.mark.django_db
-def test_inline_player_edit_shows_duplicate_name_error(
-    user: User,
-    client: Client,
-) -> None:
-    tracker.models.Player.objects.create(name="Alex")
-    player = tracker.models.Player.objects.create(name="Sam")
-    client.force_login(user)
-
-    response = client.post(
-        reverse("player-edit", args=[player.pk]),
-        {"name": "alex"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert response.templates[0].name == "tracker/partials/player_edit_row.html"
-    assert "Constraint" in response.text
-    assert tracker.models.Player.objects.filter(name="Sam").exists()
-
-
-@pytest.mark.django_db
-def test_deleting_player_keeps_goal_without_scorer(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    player = tracker.models.Player.objects.create(name="Wrong name")
-    event = tracker.models.ScoreEvent.objects.create(
+    tracker.models.ScoreEvent.objects.create(
         match=match,
         side=tracker.models.ScoreEvent.Side.HOME,
         scorer=player,
@@ -880,267 +533,547 @@ def test_deleting_player_keeps_goal_without_scorer(
 
     response = client.post(reverse("player-delete", args=[player.pk]))
 
-    event.refresh_from_db()
     assert response.status_code == 302
-    assert response["Location"] == reverse("player-list")
-    assert not tracker.models.Player.objects.exists()
-    assert event.scorer is None
+    assert tracker.models.Player.objects.filter(pk=player.pk).exists()
+    assert tracker.models.ScoreEvent.objects.get().scorer == player
 
 
 @pytest.mark.django_db
-def test_team_management_requires_login(client: Client) -> None:
-    response = client.get(reverse("team-list"))
-
-    assert response.status_code == 302
-    assert response["Location"].startswith(reverse("login"))
-
-
-@pytest.mark.django_db
-def test_team_list_shows_results_and_excludes_future_fixtures(
-    user: User,
+def test_match_team_cannot_change_when_it_would_invalidate_a_scorer(
     client: Client,
-) -> None:
-    team = tracker.models.Team.objects.create(name="United")
-    win = make_match(opponent_name=team.name, is_home=True)
-    loss = make_match(
-        opponent_name=team.name,
-        is_home=False,
-        match_date=date(2026, 8, 17),
-    )
-    make_match(
-        opponent_name=team.name,
-        is_home=True,
-        match_date=date(2026, 8, 18),
-    )
-    future = make_match(
-        opponent_name=team.name,
-        is_home=True,
-        match_date=timezone.localdate() + timedelta(days=1),
-    )
-    tracker.models.ScoreEvent.objects.bulk_create(
-        [
-            tracker.models.ScoreEvent(
-                match=win,
-                side=tracker.models.ScoreEvent.Side.HOME,
-            ),
-            tracker.models.ScoreEvent(
-                match=loss,
-                side=tracker.models.ScoreEvent.Side.HOME,
-            ),
-            tracker.models.ScoreEvent(
-                match=future,
-                side=tracker.models.ScoreEvent.Side.HOME,
-            ),
-        ]
-    )
-    client.force_login(user)
-
-    response = client.get(reverse("team-list"))
-
-    assert response.status_code == 200
-    assert response.context["teams"][0]["wins"] == 1
-    assert response.context["teams"][0]["draws"] == 1
-    assert response.context["teams"][0]["losses"] == 1
-    assert "1 win" in response.text
-    assert "1 draw" in response.text
-    assert "1 loss" in response.text
-    assert f'hx-get="{reverse("team-edit", args=[team.pk])}"' in response.text
-    assert f'aria-label="Delete {team.name}"' in response.text
-    assert 'title="Delete matches first"' in response.text
-
-
-@pytest.mark.django_db
-def test_team_can_be_edited_inline(user: User, client: Client) -> None:
-    team = tracker.models.Team.objects.create(name="Untied")
-    client.force_login(user)
-
-    edit_response = client.get(
-        reverse("team-edit", args=[team.pk]),
-        HTTP_HX_REQUEST="true",
-    )
-    save_response = client.post(
-        reverse("team-edit", args=[team.pk]),
-        {"name": "United"},
-        HTTP_HX_REQUEST="true",
-    )
-
-    team.refresh_from_db()
-    assert edit_response.status_code == 200
-    assert edit_response.templates[0].name == "tracker/partials/team_edit_row.html"
-    assert 'value="Untied"' in edit_response.text
-    assert save_response.status_code == 200
-    assert save_response.templates[0].name == "tracker/partials/team_row.html"
-    assert team.name == "United"
-
-
-@pytest.mark.django_db
-def test_team_can_only_be_deleted_without_matches(user: User, client: Client) -> None:
-    unused_team = tracker.models.Team.objects.create(name="Unused")
-    used_team = tracker.models.Team.objects.create(name="Used")
-    make_match(opponent_name=used_team.name)
-    client.force_login(user)
-
-    list_response = client.get(reverse("team-list"))
-    unused_response = client.post(reverse("team-delete", args=[unused_team.pk]))
-    used_response = client.post(reverse("team-delete", args=[used_team.pk]))
-
-    assert f'aria-label="Delete {unused_team.name}"' in list_response.text
-    assert f'aria-label="Delete {used_team.name}"' in list_response.text
-    assert 'title="Delete matches first"' in list_response.text
-    assert unused_response.status_code == 302
-    assert used_response.status_code == 302
-    assert not tracker.models.Team.objects.filter(pk=unused_team.pk).exists()
-    assert tracker.models.Team.objects.filter(pk=used_team.pk).exists()
-
-
-@pytest.mark.django_db
-def test_authenticated_match_pages_link_to_team_management(
     user: User,
-    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
-    match = make_match()
-    client.force_login(user)
-    team_url = (
-        f"{reverse('team-edit', args=[match.opponent_id])}#team-{match.opponent_id}"
-    )
-
-    detail_response = client.get(reverse("match-detail", args=[match.pk]))
-    score_response = client.get(reverse("match-score", args=[match.pk]))
-
-    assert team_url in detail_response.text
-    assert score_response.status_code == 302
-    assert score_response["Location"] == reverse("match-detail", args=[match.pk])
-    assert reverse("team-list") in detail_response.text
-
-
-@pytest.mark.django_db
-def test_future_fixture_hides_score_and_blocks_score_writes(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match(match_date=timezone.localdate() + timedelta(days=1))
-    client.force_login(user)
-
-    list_response = client.get(reverse("match-list"))
-    detail_response = client.get(reverse("match-detail", args=[match.pk]))
-    score_response = client.get(reverse("match-score", args=[match.pk]))
-    goal_response = client.post(
-        reverse(
-            "score-goal",
-            args=[match.pk, tracker.models.ScoreEvent.Side.HOME],
-        )
-    )
-
-    assert "Fixture" in list_response.text
-    assert "Score 0 to 0" not in list_response.text
-    assert "United" in detail_response.text
-    assert "Score entry becomes available" in detail_response.text
-    assert 'class="score"' not in detail_response.text
-    assert reverse("match-score", args=[match.pk]) not in detail_response.text
-    assert score_response.status_code == 302
-    assert score_response["Location"] == reverse("match-detail", args=[match.pk])
-    assert goal_response.status_code == 403
-    assert not tracker.models.ScoreEvent.objects.exists()
-
-
-@pytest.mark.django_db
-def test_future_fixture_hides_existing_goal_history(client: Client) -> None:
-    match = make_match(match_date=timezone.localdate() + timedelta(days=1))
-    player = tracker.models.Player.objects.create(name="Hidden scorer")
+    match = make_match(primary_team, opponent_team)
+    player = tracker.models.Player.objects.create(name="Alex")
+    tracker.models.TeamMembership.objects.create(player=player, team=primary_team)
     tracker.models.ScoreEvent.objects.create(
         match=match,
         side=tracker.models.ScoreEvent.Side.HOME,
         scorer=player,
     )
-
-    response = client.get(reverse("match-detail", args=[match.pk]))
-
-    assert response.status_code == 200
-    assert "Goal history" not in response.text
-    assert player.name not in response.text
-    assert 'class="scoreboard scoreboard-fixture"' in response.text
-    assert "has-feed" not in response.text
-
-
-@pytest.mark.django_db
-def test_match_on_today_is_scoreable(user: User, client: Client) -> None:
-    match = make_match(match_date=timezone.localdate())
+    replacement_club = tracker.models.Club.objects.create(name="City")
+    replacement_team = tracker.models.Team.objects.create(
+        club=replacement_club,
+        season=primary_team.season,
+        age_group="U11",
+    )
     client.force_login(user)
 
     response = client.post(
-        reverse(
-            "score-goal",
-            args=[match.pk, tracker.models.ScoreEvent.Side.HOME],
-        ),
-        HTTP_HX_REQUEST="true",
+        reverse("match-field-edit", args=[match.pk, "home-team"]),
+        {"home_team": replacement_team.pk},
     )
 
+    match.refresh_from_db()
+    assert response.status_code == 400
+    assert match.home_team == primary_team
+    assert "scorer attribution" in response.text
+
+
+@pytest.mark.django_db
+def test_team_club_edit_reassigns_team_without_renaming_shared_club(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(
+        reverse("team-edit", args=[opponent_team.pk]),
+        {
+            "club_name": primary_team.club.name,
+            "season": primary_team.season,
+            "age_group": "U10",
+        },
+    )
+
+    opponent_team.refresh_from_db()
+    primary_team.club.refresh_from_db()
+    assert response.status_code == 302
+    assert opponent_team.club == primary_team.club
+    assert primary_team.club.name == "K.F.C. Sparta Kolmont"
+
+
+@pytest.mark.django_db
+def test_club_edit_renames_the_club_without_changing_its_teams(
+    client: Client,
+    user: User,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(
+        reverse("club-edit", args=[opponent_team.club_id]),
+        {"name": "United FC"},
+    )
+
+    opponent_team.refresh_from_db()
+    assert response.status_code == 302
+    assert opponent_team.club.name == "United FC"
+
+
+@pytest.mark.django_db
+def test_club_creation_and_safe_deletion(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    create_response = client.post(reverse("club-create"), {"name": "New United"})
+    club = tracker.models.Club.objects.get(name="New United")
+    delete_response = client.post(reverse("club-delete", args=[club.pk]))
+
+    assert create_response.status_code == 302
+    assert delete_response.status_code == 302
+    assert not tracker.models.Club.objects.filter(pk=club.pk).exists()
+
+
+@pytest.mark.django_db
+def test_club_with_teams_cannot_be_deleted(
+    client: Client,
+    user: User,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(reverse("club-delete", args=[opponent_team.club_id]))
+
+    assert response.status_code == 409
+    assert "has teams" in response.text
+    assert tracker.models.Club.objects.filter(pk=opponent_team.club_id).exists()
+
+
+@pytest.mark.django_db
+def test_season_fields_offer_the_fixed_year_range(client: Client, user: User) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("team-create"))
+
+    assert '<option value="2021">2021-2022</option>' not in response.text
+    assert '<option value="2022">2022-2023</option>' in response.text
+    assert '<option value="2033">2033-2034</option>' in response.text
+
+
+@pytest.mark.django_db
+def test_match_creation_defaults_to_opponent_and_home_away_flow(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
     assert response.status_code == 200
-    assert tracker.models.ScoreEvent.objects.filter(match=match).count() == 1
+    assert 'name="opponent_team"' in response.text
+    assert 'name="is_home"' in response.text
+    assert 'name="home_team"' not in response.text
+    assert 'name="away_team"' not in response.text
+    assert 'name="status"' not in response.text
+
+
+@pytest.mark.django_db
+def test_match_opponents_are_filtered_by_default_context(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    other_team = tracker.models.Team.objects.create(
+        club=opponent_team.club,
+        season=opponent_team.season,
+        age_group="U12",
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
+    assert f'value="{opponent_team.pk}"' in response.text
+    assert f'value="{other_team.pk}"' not in response.text
+    assert "Choose a different age group" not in response.text
+
+
+@pytest.mark.django_db
+def test_match_creation_links_to_defaults_when_not_configured(
+    client: Client,
+    user: User,
+) -> None:
+    tracker.models.Defaults.objects.all().delete()
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
+    assert response.status_code == 409
+    assert reverse("defaults-edit") in response.text
+
+
+@pytest.mark.django_db
+def test_match_creation_persists_explicit_participants(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-create"),
+        {
+            "opponent_team": opponent_team.pk,
+            "is_home": "true",
+            "match_date": "2026-08-16",
+            "notes": "Cup match",
+        },
+    )
+
+    match = tracker.models.Match.objects.get()
+    assert response.status_code == 302
+    assert match.home_team == primary_team
+    assert match.away_team == opponent_team
+    assert match.status == tracker.models.Match.Status.SCHEDULED
+
+
+@pytest.mark.django_db
+def test_match_creation_can_add_an_opponent_before_selecting_it(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.post(
+        f"{reverse('team-create')}?next=match-create",
+        {
+            "club_name": "New United",
+            "season": primary_team.season,
+            "age_group": primary_team.age_group,
+        },
+    )
+
+    team = tracker.models.Team.objects.get(club__name="New United")
+    assert response.status_code == 302
+    assert response["Location"] == f"{reverse('match-create')}?opponent={team.pk}"
+    assert team.season == primary_team.season
+    assert team.age_group == primary_team.age_group
+
+
+@pytest.mark.django_db
+def test_add_match_uses_a_modal_opponent_form_and_default_context(
+    client: Client,
+    user: User,
+) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("match-create"))
+
+    assert 'id="team-form-modal"' in response.text
+    assert 'hx-target="#team-form-modal"' in response.text
+    assert "Add opponent team" in response.text
+    assert "Choose a different age group" not in response.text
+
+
+@pytest.mark.django_db
+def test_match_creation_rejects_an_opponent_outside_default_context(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    other_context_team = tracker.models.Team.objects.create(
+        club=tracker.models.Club.objects.create(name="Different age"),
+        season=primary_team.season,
+        age_group="U12",
+    )
+    client.force_login(user)
+
+    response = client.post(
+        reverse("match-create"),
+        {
+            "opponent_team": other_context_team.pk,
+            "is_home": "true",
+            "match_date": "2026-08-16",
+            "notes": "",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "default season and age group" in response.text
+    assert not tracker.models.Match.objects.exists()
+
+
+@pytest.mark.django_db
+def test_htmx_opponent_creation_selects_the_new_team(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+    url = f"{reverse('team-create')}?next=match-create"
+
+    form_response = client.get(url, headers={"HX-Request": "true"})
+    create_response = client.post(
+        url,
+        {
+            "club_name": "New United",
+            "season": primary_team.season,
+            "age_group": primary_team.age_group,
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    team = tracker.models.Team.objects.get(club__name="New United")
+    assert form_response.status_code == 200
+    assert "<dialog" in form_response.text
+    assert "Goalkeepr" not in form_response.text
+    assert create_response.status_code == 200
+    assert 'hx-swap-oob="outerHTML"' in create_response.text
+    assert f'<option value="{team.pk}" selected>' in create_response.text
+    assert 'id="team-form-modal"' in create_response.text
+
+
+@pytest.mark.django_db
+def test_htmx_team_creation_refreshes_the_teams_overview(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+    teams_response = client.get(reverse("team-list"))
+    url = f"{reverse('team-create')}?next=team-list"
+    create_response = client.post(
+        url,
+        {
+            "club_name": "New United",
+            "season": primary_team.season,
+            "age_group": primary_team.age_group,
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert 'hx-get="/teams/add/?next=team-list"' in teams_response.text
+    assert create_response.status_code == 204
+    assert create_response["HX-Refresh"] == "true"
+
+
+@pytest.mark.django_db
+def test_team_creation_uses_editable_defaults(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    response = client.get(reverse("team-create"))
+
+    assert response.status_code == 200
+    assert f'value="{primary_team.club.name}"' in response.text
+    assert f'value="{primary_team.season}" selected' in response.text
+    assert f'value="{primary_team.age_group}"' in response.text
+
+
+@pytest.mark.django_db
+def test_application_forms_do_not_render_generic_empty_options(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
+    client.force_login(user)
+
+    responses = [
+        client.get(reverse("defaults-edit")),
+        client.get(reverse("team-create")),
+        client.get(reverse("match-create")),
+        client.get(reverse("match-detail", args=[match.pk]), {"edit": "home-team"}),
+    ]
+
+    assert all("---------" not in response.text for response in responses)
+
+
+@pytest.mark.django_db
+def test_age_group_fields_offer_the_fixed_range(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    team_response = client.get(reverse("team-edit", args=[primary_team.pk]))
+    defaults_response = client.get(reverse("defaults-edit"))
+
+    assert team_response.status_code == 200
+    assert '<select name="age_group"' in team_response.text
+    assert '<option value="U6">U6</option>' in team_response.text
+    assert '<option value="U18">U18</option>' in team_response.text
+    assert 'list="age-groups"' not in team_response.text
+    assert '<select name="default_age_group"' in defaults_response.text
+
+
+@pytest.mark.django_db
+def test_swap_teams_preserves_team_scores(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
+    event = tracker.models.ScoreEvent.objects.create(match=match, side="home")
+    client.force_login(user)
+
+    response = client.post(reverse("match-swap-teams", args=[match.pk]))
+
+    match.refresh_from_db()
+    event.refresh_from_db()
+    assert response.status_code == 302
+    assert match.home_team == opponent_team
+    assert match.away_team == primary_team
+    assert event.side == tracker.models.ScoreEvent.Side.AWAY
+
+
+@pytest.mark.django_db
+def test_team_statistics_only_include_finished_matches(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    finished = make_match(primary_team, opponent_team)
+    tracker.models.ScoreEvent.objects.create(match=finished, side="home")
+    make_match(
+        primary_team,
+        opponent_team,
+        status=tracker.models.Match.Status.SCHEDULED,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("team-list"))
+    opponent_result = next(
+        result
+        for result in response.context["teams"]
+        if result["team"] == opponent_team
+    )
+
+    assert opponent_result["wins"] == 0
+    assert opponent_result["draws"] == 0
+    assert opponent_result["losses"] == 1
+    assert opponent_result["match_count"] == 2
+
+
+@pytest.mark.django_db
+def test_club_pages_group_seasonal_teams(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+
+    list_response = client.get(reverse("club-list"))
+    detail_response = client.get(reverse("club-detail", args=[primary_team.club_id]))
+
+    assert list_response.status_code == 200
+    assert primary_team.club.name in list_response.text
+    assert reverse("club-detail", args=[primary_team.club_id]) in list_response.text
+    assert detail_response.status_code == 200
+    assert primary_team.get_season_display() in detail_response.text
+    assert reverse("team-detail", args=[primary_team.pk]) in detail_response.text
+
+
+@pytest.mark.django_db
+def test_club_detail_can_add_a_team_for_that_club(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+) -> None:
+    client.force_login(user)
+    club_url = reverse("club-detail", args=[primary_team.club_id])
+    team_url = f"{reverse('team-create')}?next=club-detail&club={primary_team.club_id}"
+
+    detail_response = client.get(club_url)
+    form_response = client.get(team_url, headers={"HX-Request": "true"})
+    create_response = client.post(
+        team_url,
+        {
+            "club_name": primary_team.club.name,
+            "season": primary_team.season,
+            "age_group": "U12",
+        },
+        headers={"HX-Request": "true"},
+    )
+
+    assert 'hx-target="#team-form-modal"' in detail_response.text
+    assert f"club={primary_team.club_id}" in detail_response.text
+    assert f'value="{primary_team.club.name}"' in form_response.text
+    assert create_response.status_code == 204
+    assert create_response["HX-Refresh"] == "true"
+    assert tracker.models.Team.objects.filter(
+        club=primary_team.club,
+        season=primary_team.season,
+        age_group="U12",
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_team_detail_shows_roster_and_matches(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
+    player = tracker.models.Player.objects.create(name="Alex")
+    tracker.models.TeamMembership.objects.create(player=player, team=primary_team)
+    client.force_login(user)
+
+    response = client.get(reverse("team-detail", args=[primary_team.pk]))
+
+    assert response.status_code == 200
+    assert player.name in response.text
+    assert reverse("player-detail", args=[player.pk]) in response.text
+    assert reverse("match-detail", args=[match.pk]) in response.text
+
+
+@pytest.mark.django_db
+def test_player_detail_shows_memberships_and_goals(
+    client: Client,
+    user: User,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
+    player = tracker.models.Player.objects.create(name="Alex")
+    tracker.models.TeamMembership.objects.create(player=player, team=primary_team)
+    tracker.models.ScoreEvent.objects.create(
+        match=match,
+        side=tracker.models.ScoreEvent.Side.HOME,
+        scorer=player,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("player-detail", args=[player.pk]))
+
+    assert response.status_code == 200
+    assert str(primary_team) in response.text
+    assert primary_team.get_season_display() in response.text
+    assert reverse("team-detail", args=[primary_team.pk]) in response.text
+    assert reverse("match-detail", args=[match.pk]) in response.text
+
+
+@pytest.mark.django_db
+def test_match_writes_require_login(
+    client: Client,
+    primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
+) -> None:
+    match = make_match(primary_team, opponent_team)
+
+    response = client.post(reverse("score-goal", args=[match.pk, "home"]))
+
+    assert response.status_code == 302
+    assert response["Location"].startswith(reverse("login"))
 
 
 def test_score_side_url_is_converted_to_enum() -> None:
     match = resolve("/matches/1/goal/home/")
 
     assert match.kwargs["side"] is tracker.models.ScoreEvent.Side.HOME
-
-
-@pytest.mark.django_db
-def test_goal_rejects_invalid_side(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-
-    response = client.post(f"/matches/{match.pk}/goal/invalid/")
-
-    assert response.status_code == 404
-    assert not tracker.models.ScoreEvent.objects.exists()
-
-
-@pytest.mark.django_db
-def test_undo_removes_most_recent_event_for_selected_side(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    first_home = tracker.models.ScoreEvent.objects.create(
-        match=match, side=tracker.models.ScoreEvent.Side.HOME
-    )
-    away = tracker.models.ScoreEvent.objects.create(
-        match=match, side=tracker.models.ScoreEvent.Side.AWAY
-    )
-    latest_home = tracker.models.ScoreEvent.objects.create(
-        match=match, side=tracker.models.ScoreEvent.Side.HOME
-    )
-    client.force_login(user)
-
-    response = client.post(
-        reverse("score-undo", args=[match.pk, tracker.models.ScoreEvent.Side.HOME]),
-        HTTP_HX_REQUEST="true",
-    )
-
-    assert response.status_code == 200
-    assert list(tracker.models.ScoreEvent.objects.all()) == [away, first_home]
-    assert not tracker.models.ScoreEvent.objects.filter(pk=latest_home.pk).exists()
-    assert response.context["home_score"] == 1
-    assert response.context["away_score"] == 1
-
-
-@pytest.mark.django_db
-def test_match_delete_removes_match(
-    user: User,
-    client: Client,
-) -> None:
-    match = make_match()
-    client.force_login(user)
-    url = reverse("match-delete", args=[match.pk])
-
-    confirmation = client.get(url)
-    response = client.post(url)
-
-    assert confirmation.status_code == 200
-    assert response.status_code == 302
-    assert response["Location"] == reverse("match-list")
-    assert not tracker.models.Match.objects.exists()

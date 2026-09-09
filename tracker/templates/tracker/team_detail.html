@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}{{ team }} | Goalkeepr{% endblock %}
+
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <p class="eyebrow"><a href="{% url 'club-detail' team.club_id %}">{{ team.club.name }}</a> &middot; {{ team.get_season_display }}</p>
+      <h1>{{ team.age_group }}</h1>
+    </div>
+    <a role="button" class="secondary" href="{% url 'team-edit' team.pk %}">Edit team</a>
+  </div>
+  <div class="stat-strip">
+    <span><strong>{{ result.wins }}</strong> wins</span>
+    <span><strong>{{ result.draws }}</strong> draws</span>
+    <span><strong>{{ result.losses }}</strong> losses</span>
+  </div>
+  <section class="detail-section">
+    <h2>Players</h2>
+    {% if memberships %}
+      <div class="entity-grid">
+        {% for membership in memberships %}<article><h3><a href="{% url 'player-detail' membership.player_id %}">{{ membership.player.name }}</a></h3></article>{% endfor %}
+      </div>
+    {% else %}
+      <p>No players linked to this team.</p>
+    {% endif %}
+  </section>
+  <section class="detail-section">
+    <h2>Matches</h2>
+    {% if matches %}<div class="match-list">{% for match in matches %}{% include "tracker/partials/match_card.html" %}{% endfor %}</div>{% else %}<p>No matches yet.</p>{% endif %}
+  </section>
+{% endblock %}

@@ -1,0 +1,8 @@
+{% for match in matches %}
+  {% include "tracker/partials/match_card.html" %}
+{% endfor %}
+{% if next_url %}
+  <div id="match-list-more" class="load-more">
+    <a role="button" class="secondary" href="{{ next_url }}" hx-get="{{ next_url }}" hx-target="#match-list-more" hx-swap="outerHTML">Load more</a>
+  </div>
+{% endif %}
