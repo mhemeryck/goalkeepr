@@ -22,6 +22,8 @@ class TeamResult(typing.TypedDict):
     draws: int
     losses: int
     match_count: int
+    membership_count: int
+    is_default: bool
 
 
 class ScoredMatch(typing.Protocol):
@@ -277,15 +279,27 @@ async def _players_with_goal_counts() -> list[tracker.models.Player]:
     return [
         player
         async for player in tracker.models.Player.objects.annotate(
-            goal_count=Count("score_events")
+            goal_count=Count("score_events", distinct=True),
+            membership_count=Count("memberships", distinct=True),
         ).order_by("name", "pk")
     ]
 
 
 async def _teams_with_results() -> list[TeamResult]:
+    default_team = await _resolve_default_team(await _defaults())
     results = {
-        team.pk: TeamResult(team=team, wins=0, draws=0, losses=0, match_count=0)
-        async for team in tracker.models.Team.objects.select_related("club")
+        team.pk: TeamResult(
+            team=team,
+            wins=0,
+            draws=0,
+            losses=0,
+            match_count=0,
+            membership_count=team.membership_count,
+            is_default=default_team is not None and team.pk == default_team.pk,
+        )
+        async for team in tracker.models.Team.objects.select_related("club").annotate(
+            membership_count=Count("memberships")
+        )
     }
     matches = [
         match async for match in _scored_matches(tracker.models.Match.objects.all())
@@ -483,7 +497,8 @@ async def player_detail(request: HttpRequest, pk: int) -> HttpResponse:
 async def player_edit(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         player = await tracker.models.Player.objects.annotate(
-            goal_count=Count("score_events")
+            goal_count=Count("score_events", distinct=True),
+            membership_count=Count("memberships", distinct=True),
         ).aget(pk=pk)
     except tracker.models.Player.DoesNotExist:
         return await _not_found_response(request)
@@ -493,7 +508,8 @@ async def player_edit(request: HttpRequest, pk: int) -> HttpResponse:
         await sync_to_async(form.save)()
         if request.headers.get("HX-Request") == "true":
             player = await tracker.models.Player.objects.annotate(
-                goal_count=Count("score_events")
+                goal_count=Count("score_events", distinct=True),
+                membership_count=Count("memberships", distinct=True),
             ).aget(pk=pk)
             return render(
                 request, "tracker/partials/player_row.html", {"player": player}
@@ -528,7 +544,10 @@ async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
     try:
         await player.adelete()
     except ProtectedError:
-        pass
+        return HttpResponse(
+            "This player is referenced by retained history.",
+            status=409,
+        )
     return redirect("player-list")
 
 
@@ -820,14 +839,17 @@ async def team_delete(request: HttpRequest, pk: int) -> HttpResponse:
     except tracker.models.Team.DoesNotExist:
         return await _not_found_response(request)
     request.user = await request.auser()
-    used = await tracker.models.Match.objects.filter(
+    if await tracker.models.Match.objects.filter(
         Q(home_team=team) | Q(away_team=team)
-    ).aexists()
-    if not used:
-        try:
-            await team.adelete()
-        except ProtectedError:
-            pass
+    ).aexists():
+        return HttpResponse("This team is used in matches.", status=409)
+    try:
+        await team.adelete()
+    except ProtectedError:
+        return HttpResponse(
+            "This team is referenced by retained history or application defaults.",
+            status=409,
+        )
     return redirect("team-list")
 
 
