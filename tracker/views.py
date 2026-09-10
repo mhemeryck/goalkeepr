@@ -847,7 +847,10 @@ async def team_delete(request: HttpRequest, pk: int) -> HttpResponse:
         return HttpResponse("This team is used in matches.", status=409)
     default_team = await _resolve_default_team(await _defaults())
     if default_team is not None and default_team.pk == team.pk:
-        return HttpResponse("This team is required by application defaults.", status=409)
+        return HttpResponse(
+            "This team is required by application defaults.",
+            status=409,
+        )
     try:
         await team.adelete()
     except ProtectedError:
