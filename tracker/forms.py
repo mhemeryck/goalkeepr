@@ -231,51 +231,32 @@ class TeamForm(forms.ModelForm[tracker.models.Team]):
 
 
 class DefaultsForm(forms.ModelForm[tracker.models.Defaults]):
-    default_club = forms.ChoiceField(required=False)
-    default_season = forms.ChoiceField(required=False)
+    default_team = forms.ChoiceField(required=False)
 
     class Meta:
         model = tracker.models.Defaults
-        fields = ["default_club", "default_season", "default_age_group"]
+        fields = ["default_team"]
 
     def __init__(
         self,
         *args: typing.Any,
-        club_choices: list[tuple[int, str]],
-        season_choices: list[tuple[int, str]],
+        team_choices: list[tuple[int, str]],
         **kwargs: typing.Any,
     ) -> None:
         super().__init__(*args, **kwargs)
-        typing.cast(forms.ChoiceField, self.fields["default_club"]).choices = [
-            ("", "No default club"),
-            *club_choices,
-        ]
-        typing.cast(forms.ChoiceField, self.fields["default_season"]).choices = [
-            ("", "No default season"),
-            *season_choices,
-        ]
-        typing.cast(forms.ChoiceField, self.fields["default_age_group"]).choices = [
-            ("", "No default age group"),
-            *tracker.models.AgeGroup.choices,
+        typing.cast(forms.ChoiceField, self.fields["default_team"]).choices = [
+            ("", "No default team"),
+            *team_choices,
         ]
 
-    def clean_default_club(self) -> tracker.models.Club | None:
-        value = self.cleaned_data["default_club"]
+    def clean_default_team(self) -> tracker.models.Team | None:
+        value = self.cleaned_data["default_team"]
         if not value:
             return None
         try:
-            return tracker.models.Club.objects.get(pk=value)
-        except tracker.models.Club.DoesNotExist:
-            raise forms.ValidationError("Select a valid default club.") from None
-
-    def clean_default_season(self) -> int | None:
-        value = self.cleaned_data["default_season"]
-        if not value:
-            return None
-        try:
-            return tracker.models.Season(int(value)).value
-        except TypeError, ValueError:
-            raise forms.ValidationError("Select a valid default season.") from None
+            return tracker.models.Team.objects.get(pk=value)
+        except tracker.models.Team.DoesNotExist, ValueError:
+            raise forms.ValidationError("Select a valid default team.") from None
 
 
 class AddPlayerForm(forms.Form):

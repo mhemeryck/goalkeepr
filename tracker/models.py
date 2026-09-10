@@ -91,44 +91,27 @@ class Team(models.Model):
 
 
 class Defaults(models.Model):
-    default_club = models.ForeignKey(
-        Club,
+    if typing.TYPE_CHECKING:
+        default_team_id: int | None
+
+    default_team = models.ForeignKey(
+        Team,
         on_delete=models.PROTECT,
         related_name="+",
         null=True,
         blank=True,
     )
-    default_season = models.PositiveSmallIntegerField(
-        choices=Season.choices,
-        null=True,
-        blank=True,
-    )
-    default_age_group = models.CharField(
-        max_length=3,
-        choices=AgeGroup.choices,
-        blank=True,
-    )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(pk=1),
+                name="single_defaults_record",
+            )
+        ]
 
     def __str__(self) -> str:
         return "Defaults"
-
-    def clean(self) -> None:
-        super().clean()
-        default_club = self.default_club
-        default_season = self.default_season
-        if (
-            default_club is not None
-            and default_season is not None
-            and self.default_age_group
-            and not Team.objects.filter(
-                club=default_club,
-                season=default_season,
-                age_group=self.default_age_group,
-            ).exists()
-        ):
-            raise ValidationError(
-                "The configured defaults must resolve to an existing team."
-            )
 
 
 class Player(models.Model):
@@ -161,12 +144,12 @@ class TeamMembership(models.Model):
 
     player = models.ForeignKey(
         Player,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="memberships",
     )
     team = models.ForeignKey(
         Team,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="memberships",
     )
 
@@ -254,7 +237,7 @@ class ScoreEvent(models.Model):
     side = models.CharField(max_length=4, choices=Side.choices)
     scorer = models.ForeignKey(
         Player,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="score_events",
         null=True,
         blank=True,

@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone, translation
 
 import tracker.models
@@ -109,16 +110,73 @@ def test_team_identity_is_unique_within_club_and_season() -> None:
 
 
 @pytest.mark.django_db
-def test_defaults_must_resolve_to_an_existing_team() -> None:
-    team = make_team()
-    defaults = tracker.models.Defaults(
-        default_club=team.club,
-        default_season=team.season,
-        default_age_group="U12",
+def test_only_one_defaults_record_can_exist() -> None:
+    assert tracker.models.Defaults.objects.filter(pk=1).exists()
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        tracker.models.Defaults.objects.create(pk=2)
+
+
+@pytest.mark.django_db
+def test_default_team_cannot_be_deleted() -> None:
+    team = make_team("Sparta Kolmont")
+    tracker.models.Defaults.objects.update_or_create(
+        pk=1,
+        defaults={"default_team": team},
     )
 
-    with pytest.raises(ValidationError, match="existing team"):
-        defaults.full_clean()
+    with pytest.raises(ProtectedError):
+        tracker.models.Team.objects.filter(pk=team.pk).delete()
+
+
+@pytest.mark.django_db
+def test_club_with_a_team_cannot_be_deleted() -> None:
+    team = make_team()
+
+    with pytest.raises(ProtectedError):
+        team.club.delete()
+
+
+@pytest.mark.django_db
+def test_membership_protects_its_player_and_team_from_implicit_deletion() -> None:
+    team = make_team()
+    player = tracker.models.Player.objects.create(name="Alex")
+    membership = tracker.models.TeamMembership.objects.create(
+        player=player,
+        team=team,
+    )
+
+    with pytest.raises(ProtectedError):
+        player.delete()
+    with pytest.raises(ProtectedError):
+        team.delete()
+
+    assert tracker.models.TeamMembership.objects.filter(pk=membership.pk).exists()
+
+
+@pytest.mark.django_db
+def test_scorer_attribution_protects_player_from_deletion() -> None:
+    player = tracker.models.Player.objects.create(name="Alex")
+    event = tracker.models.ScoreEvent.objects.create(
+        match=make_match(),
+        side=tracker.models.ScoreEvent.Side.HOME,
+        scorer=player,
+    )
+
+    with pytest.raises(ProtectedError):
+        tracker.models.Player.objects.filter(pk=player.pk).delete()
+
+    assert tracker.models.ScoreEvent.objects.get(pk=event.pk).scorer == player
+
+
+@pytest.mark.django_db
+def test_match_participants_cannot_be_deleted() -> None:
+    match = make_match()
+
+    with pytest.raises(ProtectedError):
+        match.home_team.delete()
+    with pytest.raises(ProtectedError):
+        match.away_team.delete()
 
 
 @pytest.mark.django_db

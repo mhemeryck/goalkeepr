@@ -6,24 +6,14 @@
   <section class="form-card">
     <p class="eyebrow">Manage</p>
     <h1>Defaults</h1>
-    <p>Choose the season and household team used for everyday match browsing and entry.</p>
+    <p>Choose the household team used for everyday match browsing and entry.</p>
     <form method="post">
       {% csrf_token %}
       {{ form.non_field_errors }}
       <p>
-        {{ form.default_club.label_tag }}
-        {{ form.default_club }}
-        {{ form.default_club.errors }}
-      </p>
-      <p>
-        {{ form.default_season.label_tag }}
-        {{ form.default_season }}
-        {{ form.default_season.errors }}
-      </p>
-      <p>
-        {{ form.default_age_group.label_tag }}
-        {{ form.default_age_group }}
-        {{ form.default_age_group.errors }}
+        {{ form.default_team.label_tag }}
+        {{ form.default_team }}
+        {{ form.default_team.errors }}
       </p>
       <button type="submit">Save defaults</button>
     </form>

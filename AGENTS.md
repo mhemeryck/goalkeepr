@@ -18,6 +18,7 @@
 - Update the specification only when current or intended product behaviour changes
 - Add a focused behaviour test before application changes where practical
 - Implement on a dedicated branch
+- Use plain descriptive branch names without category prefixes such as `issue/`, `feature/`, or `fix/`
 - Run relevant tests, Ruff, and mypy before completion
 - Open a pull request linked to the issue
 - Use `Closes #<issue>` only when the pull request fully satisfies the issue
