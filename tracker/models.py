@@ -3,10 +3,7 @@ from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Lower
-from django.db.models.signals import pre_delete
-from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
@@ -94,21 +91,14 @@ class Team(models.Model):
 
 
 class Defaults(models.Model):
-    default_club = models.ForeignKey(
-        Club,
+    if typing.TYPE_CHECKING:
+        default_team_id: int | None
+
+    default_team = models.ForeignKey(
+        Team,
         on_delete=models.PROTECT,
         related_name="+",
         null=True,
-        blank=True,
-    )
-    default_season = models.PositiveSmallIntegerField(
-        choices=Season.choices,
-        null=True,
-        blank=True,
-    )
-    default_age_group = models.CharField(
-        max_length=3,
-        choices=AgeGroup.choices,
         blank=True,
     )
 
@@ -122,47 +112,6 @@ class Defaults(models.Model):
 
     def __str__(self) -> str:
         return "Defaults"
-
-    def clean(self) -> None:
-        super().clean()
-        default_club = self.default_club
-        default_season = self.default_season
-        if (
-            default_club is not None
-            and default_season is not None
-            and self.default_age_group
-            and not Team.objects.filter(
-                club=default_club,
-                season=default_season,
-                age_group=self.default_age_group,
-            ).exists()
-        ):
-            raise ValidationError(
-                "The configured defaults must resolve to an existing team."
-            )
-
-
-@receiver(pre_delete, sender=Team)
-def protect_default_team(
-    sender: type[Team],
-    instance: Team,
-    using: str,
-    **kwargs: typing.Any,
-) -> None:
-    del sender, kwargs
-    if (
-        Defaults.objects.using(using)
-        .filter(
-            default_club_id=instance.club_id,
-            default_season=instance.season,
-            default_age_group=instance.age_group,
-        )
-        .exists()
-    ):
-        raise ProtectedError(
-            "The team is required by application defaults.",
-            {instance},
-        )
 
 
 class Player(models.Model):
