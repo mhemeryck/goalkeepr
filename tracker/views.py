@@ -5,6 +5,7 @@ from django import forms
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.db.models import Case, Count, Prefetch, Q, QuerySet, Value, When
+from django.db.models.deletion import ProtectedError
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -524,8 +525,10 @@ async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
     except tracker.models.Player.DoesNotExist:
         return await _not_found_response(request)
     request.user = await request.auser()
-    if not await player.score_events.aexists():
+    try:
         await player.adelete()
+    except ProtectedError:
+        pass
     return redirect("player-list")
 
 
@@ -741,7 +744,13 @@ async def club_delete(request: HttpRequest, pk: int) -> HttpResponse:
             status=409,
         )
     if request.method == "POST":
-        await club.adelete()
+        try:
+            await club.adelete()
+        except ProtectedError:
+            return HttpResponse(
+                "This club is required by application defaults.",
+                status=409,
+            )
         return redirect("club-list")
     return render(request, "tracker/club_confirm_delete.html", {"club": club})
 
@@ -815,7 +824,10 @@ async def team_delete(request: HttpRequest, pk: int) -> HttpResponse:
         Q(home_team=team) | Q(away_team=team)
     ).aexists()
     if not used:
-        await team.adelete()
+        try:
+            await team.adelete()
+        except ProtectedError:
+            pass
     return redirect("team-list")
 
 

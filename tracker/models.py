@@ -3,7 +3,10 @@ from datetime import date
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Lower
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy
 
@@ -109,6 +112,14 @@ class Defaults(models.Model):
         blank=True,
     )
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(pk=1),
+                name="single_defaults_record",
+            )
+        ]
+
     def __str__(self) -> str:
         return "Defaults"
 
@@ -129,6 +140,29 @@ class Defaults(models.Model):
             raise ValidationError(
                 "The configured defaults must resolve to an existing team."
             )
+
+
+@receiver(pre_delete, sender=Team)
+def protect_default_team(
+    sender: type[Team],
+    instance: Team,
+    using: str,
+    **kwargs: typing.Any,
+) -> None:
+    del sender, kwargs
+    if (
+        Defaults.objects.using(using)
+        .filter(
+            default_club_id=instance.club_id,
+            default_season=instance.season,
+            default_age_group=instance.age_group,
+        )
+        .exists()
+    ):
+        raise ProtectedError(
+            "The team is required by application defaults.",
+            {instance},
+        )
 
 
 class Player(models.Model):
@@ -161,12 +195,12 @@ class TeamMembership(models.Model):
 
     player = models.ForeignKey(
         Player,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="memberships",
     )
     team = models.ForeignKey(
         Team,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="memberships",
     )
 
@@ -254,7 +288,7 @@ class ScoreEvent(models.Model):
     side = models.CharField(max_length=4, choices=Side.choices)
     scorer = models.ForeignKey(
         Player,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="score_events",
         null=True,
         blank=True,
