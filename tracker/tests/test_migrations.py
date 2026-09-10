@@ -212,3 +212,41 @@ def test_age_group_values_migrate_to_fixed_choices() -> None:
     MigrationExecutor(connection).migrate(
         [("tracker", "0008_replace_age_group_with_choices")]
     )
+
+
+@pytest.mark.django_db(transaction=True)
+def test_defaults_migrate_to_concrete_team_reference() -> None:
+    migration = "0010_alter_scoreevent_scorer_alter_teammembership_player_and_more"
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", "0009_alter_defaults_default_season_alter_team_season")])
+    old_apps = executor.loader.project_state(
+        [("tracker", "0009_alter_defaults_default_season_alter_team_season")]
+    ).apps
+    club_model = old_apps.get_model("tracker", "Club")
+    team_model = old_apps.get_model("tracker", "Team")
+    defaults_model = old_apps.get_model("tracker", "Defaults")
+    club = club_model.objects.create(name="Concrete Default United")
+    team = team_model.objects.create(club=club, season=2026, age_group="U11")
+    defaults_model.objects.update_or_create(
+        pk=1,
+        defaults={
+            "default_club": club,
+            "default_season": 2026,
+            "default_age_group": "U11",
+        },
+    )
+
+    executor = MigrationExecutor(connection)
+    executor.migrate([("tracker", migration)])
+    new_apps = executor.loader.project_state([("tracker", migration)]).apps
+    migrated_defaults = new_apps.get_model("tracker", "Defaults").objects.get(pk=1)
+    field_names = {
+        field.name
+        for field in new_apps.get_model("tracker", "Defaults")._meta.get_fields()
+    }
+
+    assert migrated_defaults.default_team_id == team.pk
+    assert "default_team" in field_names
+    assert "default_club" not in field_names
+    assert "default_season" not in field_names
+    assert "default_age_group" not in field_names
