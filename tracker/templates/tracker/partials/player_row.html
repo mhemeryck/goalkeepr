@@ -3,7 +3,7 @@
     <strong>{{ player.name }}</strong>
     <small>{{ player.goal_count }} goal{{ player.goal_count|pluralize }}</small>
   </a>
-  {% if player.goal_count %}
+  {% if player.goal_count or player.membership_count %}
     <small class="entity-lock">Recorded history</small>
   {% else %}
     <form class="player-delete" method="post" action="{% url 'player-delete' player.pk %}" onsubmit="return confirm('Delete this player?')">
