@@ -294,7 +294,7 @@ async def _teams_with_results() -> list[TeamResult]:
             draws=0,
             losses=0,
             match_count=0,
-            membership_count=team.membership_count,
+            membership_count=typing.cast(typing.Any, team).membership_count,
             is_default=default_team is not None and team.pk == default_team.pk,
         )
         async for team in tracker.models.Team.objects.select_related("club").annotate(
@@ -541,6 +541,8 @@ async def player_delete(request: HttpRequest, pk: int) -> HttpResponse:
     except tracker.models.Player.DoesNotExist:
         return await _not_found_response(request)
     request.user = await request.auser()
+    if await player.score_events.aexists():
+        return redirect("player-list")
     try:
         await player.adelete()
     except ProtectedError:
@@ -843,6 +845,9 @@ async def team_delete(request: HttpRequest, pk: int) -> HttpResponse:
         Q(home_team=team) | Q(away_team=team)
     ).aexists():
         return HttpResponse("This team is used in matches.", status=409)
+    default_team = await _resolve_default_team(await _defaults())
+    if default_team is not None and default_team.pk == team.pk:
+        return HttpResponse("This team is required by application defaults.", status=409)
     try:
         await team.adelete()
     except ProtectedError:
