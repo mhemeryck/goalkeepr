@@ -138,12 +138,12 @@ def test_match_list_defaults_to_current_season(
 
 
 @pytest.mark.django_db
-def test_defaults_view_limits_teams_to_the_selected_season(
+def test_defaults_view_lists_concrete_teams(
     client: Client,
     user: User,
     primary_team: tracker.models.Team,
 ) -> None:
-    tracker.models.Team.objects.create(
+    old_team = tracker.models.Team.objects.create(
         club=primary_team.club,
         season=tracker.models.Season.YEAR_2025,
         age_group="U10",
@@ -153,33 +153,28 @@ def test_defaults_view_limits_teams_to_the_selected_season(
     response = client.get(reverse("defaults-edit"))
 
     assert response.status_code == 200
-    assert f">{primary_team.club}</option>" in response.text
-    assert 'value="U11"' in response.text
-    assert 'value="U10"' in response.text
+    assert f'value="{primary_team.pk}"' in response.text
+    assert f'value="{old_team.pk}"' in response.text
+    assert f"{primary_team} ({primary_team.get_season_display()})" in response.text
 
 
 @pytest.mark.django_db
-def test_defaults_can_be_changed_as_club_season_and_age_group(
+def test_default_team_can_be_changed(
     client: Client,
     user: User,
     primary_team: tracker.models.Team,
+    opponent_team: tracker.models.Team,
 ) -> None:
     client.force_login(user)
 
     response = client.post(
         reverse("defaults-edit"),
-        {
-            "default_club": primary_team.club_id,
-            "default_season": primary_team.season,
-            "default_age_group": primary_team.age_group,
-        },
+        {"default_team": opponent_team.pk},
     )
 
     defaults = tracker.models.Defaults.objects.get(pk=1)
     assert response.status_code == 302
-    assert defaults.default_club == primary_team.club
-    assert defaults.default_season == primary_team.season
-    assert defaults.default_age_group == primary_team.age_group
+    assert defaults.default_team == opponent_team
 
 
 @pytest.mark.django_db
@@ -907,7 +902,7 @@ def test_age_group_fields_offer_the_fixed_range(
     assert '<option value="U6">U6</option>' in team_response.text
     assert '<option value="U18">U18</option>' in team_response.text
     assert 'list="age-groups"' not in team_response.text
-    assert '<select name="default_age_group"' in defaults_response.text
+    assert '<select name="default_team"' in defaults_response.text
 
 
 @pytest.mark.django_db
