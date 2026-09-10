@@ -4,12 +4,56 @@ import django.db.models.deletion
 from django.db import migrations, models
 
 
+def populate_default_team(apps, schema_editor):
+    Defaults = apps.get_model("tracker", "Defaults")
+    Team = apps.get_model("tracker", "Team")
+    for defaults in Defaults.objects.all():
+        if (
+            defaults.default_club_id is None
+            or defaults.default_season is None
+            or not defaults.default_age_group
+        ):
+            continue
+        team = Team.objects.filter(
+            club_id=defaults.default_club_id,
+            season=defaults.default_season,
+            age_group=defaults.default_age_group,
+        ).first()
+        if team is not None:
+            defaults.default_team_id = team.pk
+            defaults.save(update_fields=["default_team"])
+
+
 class Migration(migrations.Migration):
     dependencies = [
         ("tracker", "0009_alter_defaults_default_season_alter_team_season"),
     ]
 
     operations = [
+        migrations.AddField(
+            model_name="defaults",
+            name="default_team",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.PROTECT,
+                related_name="+",
+                to="tracker.team",
+            ),
+        ),
+        migrations.RunPython(populate_default_team, migrations.RunPython.noop),
+        migrations.RemoveField(
+            model_name="defaults",
+            name="default_club",
+        ),
+        migrations.RemoveField(
+            model_name="defaults",
+            name="default_season",
+        ),
+        migrations.RemoveField(
+            model_name="defaults",
+            name="default_age_group",
+        ),
         migrations.AlterField(
             model_name="scoreevent",
             name="scorer",
