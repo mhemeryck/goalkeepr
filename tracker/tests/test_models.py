@@ -110,19 +110,6 @@ def test_team_identity_is_unique_within_club_and_season() -> None:
 
 
 @pytest.mark.django_db
-def test_defaults_must_resolve_to_an_existing_team() -> None:
-    team = make_team()
-    defaults = tracker.models.Defaults(
-        default_club=team.club,
-        default_season=team.season,
-        default_age_group="U12",
-    )
-
-    with pytest.raises(ValidationError, match="existing team"):
-        defaults.full_clean()
-
-
-@pytest.mark.django_db
 def test_only_one_defaults_record_can_exist() -> None:
     assert tracker.models.Defaults.objects.filter(pk=1).exists()
 
@@ -131,27 +118,11 @@ def test_only_one_defaults_record_can_exist() -> None:
 
 
 @pytest.mark.django_db
-def test_default_club_cannot_be_deleted() -> None:
-    club = tracker.models.Club.objects.create(name="Sparta Kolmont")
-    tracker.models.Defaults.objects.update_or_create(
-        pk=1,
-        defaults={"default_club": club},
-    )
-
-    with pytest.raises(ProtectedError):
-        club.delete()
-
-
-@pytest.mark.django_db
-def test_team_resolving_application_defaults_cannot_be_deleted() -> None:
+def test_default_team_cannot_be_deleted() -> None:
     team = make_team("Sparta Kolmont")
     tracker.models.Defaults.objects.update_or_create(
         pk=1,
-        defaults={
-            "default_club": team.club,
-            "default_season": team.season,
-            "default_age_group": team.age_group,
-        },
+        defaults={"default_team": team},
     )
 
     with pytest.raises(ProtectedError):
