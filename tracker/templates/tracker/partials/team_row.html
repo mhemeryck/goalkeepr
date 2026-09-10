@@ -5,6 +5,10 @@
   </a>
   {% if result.match_count %}
     <small class="entity-lock">Used in matches</small>
+  {% elif result.membership_count %}
+    <small class="entity-lock">Recorded history</small>
+  {% elif result.is_default %}
+    <small class="entity-lock">Application default</small>
   {% else %}
     <form class="team-delete" method="post" action="{% url 'team-delete' result.team.pk %}" onsubmit="return confirm('Delete this team?')">
       {% csrf_token %}
