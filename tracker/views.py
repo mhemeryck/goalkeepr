@@ -79,7 +79,21 @@ async def _match_list_context() -> dict[str, typing.Any]:
             "-match_date", "-pk"
         )
     ]
-    return {"matches": matches, "today": timezone.localdate()}
+    today = timezone.localdate()
+    for match in matches:
+        scored_match = typing.cast(ScoredMatch, match)
+        household_score = (
+            scored_match.home_score_value
+            if match.is_home
+            else scored_match.away_score_value
+        )
+        opponent_score = (
+            scored_match.away_score_value
+            if match.is_home
+            else scored_match.home_score_value
+        )
+        match.is_win = match.match_date <= today and household_score > opponent_score
+    return {"matches": matches, "today": today}
 
 
 async def _player_names() -> list[str]:
