@@ -5,7 +5,7 @@
       <strong>{% if match.is_home %}{{ TEAM_NAME }}{% else %}{{ match.opponent.name }}{% endif %}</strong>
       <strong>{% if match.is_home %}{{ match.opponent.name }}{% else %}{{ TEAM_NAME }}{% endif %}</strong>
     </div>
-    {% if match.match_date > today %}
+    {% if is_future_fixture %}
       <span class="fixture-badge">Fixture</span>
     {% else %}
       <div class="compact-score" aria-label="Score {{ match.home_score_value }} to {{ match.away_score_value }}">
