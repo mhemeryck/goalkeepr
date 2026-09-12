@@ -92,7 +92,11 @@ async def _match_list_context() -> dict[str, typing.Any]:
             if match.is_home
             else scored_match.home_score_value
         )
-        match.is_win = match.match_date <= today and household_score > opponent_score
+        setattr(
+            match,
+            "is_win",
+            match.match_date <= today and household_score > opponent_score,
+        )
     return {"matches": matches, "today": today}
 
 
