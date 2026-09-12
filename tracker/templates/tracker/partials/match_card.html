@@ -1,4 +1,4 @@
-<article class="match-card{% if match.is_win %} match-card-won{% endif %}">
+<article class="match-card{% if is_win %} match-card-won{% endif %}">
   <a id="match-link-{{ match.pk }}" class="match-card-link" href="{% url 'match-detail' match.pk %}">
     <div>
       <span class="match-date">{{ match.match_date|date:"D j M Y" }}</span>
