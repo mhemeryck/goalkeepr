@@ -5,7 +5,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.db.models import BooleanField, Case, Count, F, Q, QuerySet, Value, When
+from django.db.models import Case, Count, Q, QuerySet, Value, When
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -27,6 +27,11 @@ class TeamResult(typing.TypedDict):
 class ScoredMatch(typing.Protocol):
     home_score_value: int
     away_score_value: int
+
+
+class MatchListItem(typing.TypedDict):
+    match: tracker.models.Match
+    is_win: bool
 
 
 MATCH_EDIT_FIELDS = {
@@ -57,6 +62,23 @@ def _is_future_fixture(match: tracker.models.Match) -> bool:
     return match.match_date > timezone.localdate()
 
 
+def _is_household_win(match: tracker.models.Match) -> bool:
+    if _is_future_fixture(match):
+        return False
+    scored_match = typing.cast(ScoredMatch, match)
+    household_score = (
+        scored_match.home_score_value
+        if match.is_home
+        else scored_match.away_score_value
+    )
+    opponent_score = (
+        scored_match.away_score_value
+        if match.is_home
+        else scored_match.home_score_value
+    )
+    return household_score > opponent_score
+
+
 def _scored_matches(
     queryset: QuerySet[tracker.models.Match],
 ) -> QuerySet[tracker.models.Match]:
@@ -73,27 +95,16 @@ def _scored_matches(
 
 
 async def _match_list_context() -> dict[str, typing.Any]:
-    today = timezone.localdate()
     matches = [
         match
-        async for match in _scored_matches(tracker.models.Match.objects.all())
-        .annotate(
-            is_win=Case(
-                When(
-                    Q(match_date__lte=today)
-                    & (
-                        Q(is_home=True, home_score_value__gt=F("away_score_value"))
-                        | Q(is_home=False, away_score_value__gt=F("home_score_value"))
-                    ),
-                    then=Value(True),
-                ),
-                default=Value(False),
-                output_field=BooleanField(),
-            )
+        async for match in _scored_matches(tracker.models.Match.objects.all()).order_by(
+            "-match_date", "-pk"
         )
-        .order_by("-match_date", "-pk")
     ]
-    return {"matches": matches, "today": today}
+    match_items = [
+        MatchListItem(match=match, is_win=_is_household_win(match)) for match in matches
+    ]
+    return {"match_items": match_items, "today": timezone.localdate()}
 
 
 async def _player_names() -> list[str]:
