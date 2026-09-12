@@ -5,7 +5,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.db.models import Case, Count, Q, QuerySet, Value, When
+from django.db.models import BooleanField, Case, Count, F, Q, QuerySet, Value, When
 from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -73,30 +73,26 @@ def _scored_matches(
 
 
 async def _match_list_context() -> dict[str, typing.Any]:
+    today = timezone.localdate()
     matches = [
         match
-        async for match in _scored_matches(tracker.models.Match.objects.all()).order_by(
-            "-match_date", "-pk"
+        async for match in _scored_matches(tracker.models.Match.objects.all())
+        .annotate(
+            is_win=Case(
+                When(
+                    Q(match_date__lte=today)
+                    & (
+                        Q(is_home=True, home_score_value__gt=F("away_score_value"))
+                        | Q(is_home=False, away_score_value__gt=F("home_score_value"))
+                    ),
+                    then=Value(True),
+                ),
+                default=Value(False),
+                output_field=BooleanField(),
+            )
         )
+        .order_by("-match_date", "-pk")
     ]
-    today = timezone.localdate()
-    for match in matches:
-        scored_match = typing.cast(ScoredMatch, match)
-        household_score = (
-            scored_match.home_score_value
-            if match.is_home
-            else scored_match.away_score_value
-        )
-        opponent_score = (
-            scored_match.away_score_value
-            if match.is_home
-            else scored_match.home_score_value
-        )
-        setattr(
-            match,
-            "is_win",
-            match.match_date <= today and household_score > opponent_score,
-        )
     return {"matches": matches, "today": today}
 
 
