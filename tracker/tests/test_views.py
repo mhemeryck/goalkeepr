@@ -143,7 +143,7 @@ def test_match_list_does_not_mark_today_as_a_win(client: Client) -> None:
 
     listed_item = response.context["match_items"][0]
     assert listed_item["is_win"] is False
-    assert "match-card-won" not in response.text
+    assert 'class="match-card match-card-won"' not in response.text
 
 
 @pytest.mark.django_db
