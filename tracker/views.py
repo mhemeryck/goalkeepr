@@ -32,6 +32,7 @@ class ScoredMatch(typing.Protocol):
 class MatchListItem(typing.TypedDict):
     match: tracker.models.Match
     is_win: bool
+    is_future_fixture: bool
 
 
 MATCH_EDIT_FIELDS = {
@@ -102,9 +103,14 @@ async def _match_list_context() -> dict[str, typing.Any]:
         )
     ]
     match_items = [
-        MatchListItem(match=match, is_win=_is_household_win(match)) for match in matches
+        MatchListItem(
+            match=match,
+            is_win=_is_household_win(match),
+            is_future_fixture=_is_future_fixture(match),
+        )
+        for match in matches
     ]
-    return {"match_items": match_items, "today": timezone.localdate()}
+    return {"match_items": match_items}
 
 
 async def _player_names() -> list[str]:
