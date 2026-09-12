@@ -29,6 +29,12 @@ class ScoredMatch(typing.Protocol):
     away_score_value: int
 
 
+class MatchListItem(typing.TypedDict):
+    match: tracker.models.Match
+    is_win: bool
+    is_future_fixture: bool
+
+
 MATCH_EDIT_FIELDS = {
     "opponent": "opponent_name",
     "venue": "is_home",
@@ -57,6 +63,23 @@ def _is_future_fixture(match: tracker.models.Match) -> bool:
     return match.match_date > timezone.localdate()
 
 
+def _is_household_win(match: tracker.models.Match) -> bool:
+    if match.match_date >= timezone.localdate():
+        return False
+    scored_match = typing.cast(ScoredMatch, match)
+    household_score = (
+        scored_match.home_score_value
+        if match.is_home
+        else scored_match.away_score_value
+    )
+    opponent_score = (
+        scored_match.away_score_value
+        if match.is_home
+        else scored_match.home_score_value
+    )
+    return household_score > opponent_score
+
+
 def _scored_matches(
     queryset: QuerySet[tracker.models.Match],
 ) -> QuerySet[tracker.models.Match]:
@@ -79,7 +102,15 @@ async def _match_list_context() -> dict[str, typing.Any]:
             "-match_date", "-pk"
         )
     ]
-    return {"matches": matches, "today": timezone.localdate()}
+    match_items = [
+        MatchListItem(
+            match=match,
+            is_win=_is_household_win(match),
+            is_future_fixture=_is_future_fixture(match),
+        )
+        for match in matches
+    ]
+    return {"match_items": match_items}
 
 
 async def _player_names() -> list[str]:
