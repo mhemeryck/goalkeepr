@@ -36,7 +36,10 @@ def test_match_list_is_public_and_contains_all_matches(
     response = client.get(reverse("match-list"))
 
     assert response.status_code == 200
-    assert [item["match"] for item in response.context["match_items"]] == [second, first]
+    assert [item["match"] for item in response.context["match_items"]] == [
+        second,
+        first,
+    ]
     assert "K.F.C. Sparta Kolmont" in response.text
     assert reverse("match-detail", args=[first.pk]) in response.text
     assert reverse("match-score", args=[first.pk]) not in response.text
