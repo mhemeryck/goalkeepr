@@ -63,7 +63,7 @@ def _is_future_fixture(match: tracker.models.Match) -> bool:
 
 
 def _is_household_win(match: tracker.models.Match) -> bool:
-    if _is_future_fixture(match):
+    if match.match_date >= timezone.localdate():
         return False
     scored_match = typing.cast(ScoredMatch, match)
     household_score = (
