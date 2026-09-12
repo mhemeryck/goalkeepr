@@ -1,8 +1,8 @@
 <div id="match-list">
-  {% if matches %}
+  {% if match_items %}
     <div class="match-list">
-      {% for match in matches %}
-        {% include "tracker/partials/match_card.html" %}
+      {% for item in match_items %}
+        {% include "tracker/partials/match_card.html" with match=item.match is_win=item.is_win %}
       {% endfor %}
     </div>
   {% else %}
