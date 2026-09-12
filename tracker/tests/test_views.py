@@ -36,7 +36,7 @@ def test_match_list_is_public_and_contains_all_matches(
     response = client.get(reverse("match-list"))
 
     assert response.status_code == 200
-    assert list(response.context["matches"]) == [second, first]
+    assert [item["match"] for item in response.context["match_items"]] == [second, first]
     assert "K.F.C. Sparta Kolmont" in response.text
     assert reverse("match-detail", args=[first.pk]) in response.text
     assert reverse("match-score", args=[first.pk]) not in response.text
@@ -86,7 +86,7 @@ def test_match_list_scores_are_derived_from_events(client: Client, user: User) -
 
     response = client.get(reverse("match-list"))
 
-    listed_match = response.context["matches"][0]
+    listed_match = response.context["match_items"][0]["match"]
     assert listed_match.home_score_value == 2
     assert listed_match.away_score_value == 1
 
@@ -122,8 +122,9 @@ def test_match_list_marks_household_wins(
 
     response = client.get(reverse("match-list"))
 
-    listed_match = response.context["matches"][0]
-    assert listed_match.is_win is True
+    listed_item = response.context["match_items"][0]
+    assert listed_item["match"] == match
+    assert listed_item["is_win"] is True
     assert 'class="match-card match-card-won"' in response.text
 
 
