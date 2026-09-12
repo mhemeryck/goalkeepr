@@ -92,6 +92,42 @@ def test_match_list_scores_are_derived_from_events(client: Client, user: User) -
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("is_home", "home_goals", "away_goals"),
+    [(True, 2, 1), (False, 1, 2)],
+)
+def test_match_list_marks_household_wins(
+    client: Client,
+    is_home: bool,
+    home_goals: int,
+    away_goals: int,
+) -> None:
+    match = make_match(is_home=is_home)
+    tracker.models.ScoreEvent.objects.bulk_create(
+        [
+            *[
+                tracker.models.ScoreEvent(
+                    match=match, side=tracker.models.ScoreEvent.Side.HOME
+                )
+                for _ in range(home_goals)
+            ],
+            *[
+                tracker.models.ScoreEvent(
+                    match=match, side=tracker.models.ScoreEvent.Side.AWAY
+                )
+                for _ in range(away_goals)
+            ],
+        ]
+    )
+
+    response = client.get(reverse("match-list"))
+
+    listed_match = response.context["matches"][0]
+    assert listed_match.is_win is True
+    assert 'class="match-card match-card-won"' in response.text
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize("authenticated", [False, True])
 def test_match_list_does_not_poll_for_updates(
     client: Client,
