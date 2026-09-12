@@ -2,7 +2,7 @@
   {% if match_items %}
     <div class="match-list">
       {% for item in match_items %}
-        {% include "tracker/partials/match_card.html" with match=item.match is_win=item.is_win %}
+        {% include "tracker/partials/match_card.html" with match=item.match is_win=item.is_win is_future_fixture=item.is_future_fixture %}
       {% endfor %}
     </div>
   {% else %}
